@@ -1,0 +1,48 @@
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+
+  :root {
+    --primary: #1f68ef;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', 'Noto Sans SC', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  /* Material Symbols Outlined */
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-size: 24px;
+    user-select: none;
+  }
+
+  .material-symbols-outlined.filled {
+    font-variation-settings: 'FILL' 1;
+  }
+
+    input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+
+  input[type="password"]::-webkit-credentials-auto-fill-button {
+    display: none;
+  }
+
+  /* 针对 Chrome/Edge 的密码眼睛 */
+  input::-webkit-caps-lock-indicator,
+  ::-webkit-credentials-auto-fill-button {
+    display: none !important;
+  }

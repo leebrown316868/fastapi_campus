@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Skill",
+      "mcp__web-search-prime__webSearchPrime",
+      "mcp__web-reader__webReader"
+    ]
+  }
+}

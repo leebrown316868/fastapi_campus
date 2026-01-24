@@ -1,0 +1,8 @@
+{
+  "name": "CampusHub - Smart Student Portal",
+  "description": "A futuristic glassmorphism campus portal for students to manage courses, activities, and lost & found items with AI assistance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
