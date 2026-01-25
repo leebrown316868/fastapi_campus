@@ -10,11 +10,17 @@ const Activities: React.FC = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>('全部类型');
   const [selectedStatus, setSelectedStatus] = useState<string>('全部状态');
+  const [selectedTime, setSelectedTime] = useState<'all' | 'week' | 'month'>('all');
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const categories = ['全部类型', '文艺', '讲座', '体育', '科创'];
   const statuses = ['全部状态', '报名中', '进行中', '已结束'];
+  const timeFilters = [
+    { value: 'all' as const, label: '全部时间' },
+    { value: 'week' as const, label: '本周' },
+    { value: 'month' as const, label: '本月' },
+  ];
 
   // Fetch activities from API
   useEffect(() => {
@@ -26,7 +32,26 @@ const Activities: React.FC = () => {
         if (selectedStatus !== '全部状态') params.status = selectedStatus;
 
         const data = await activitiesService.getAll(params);
-        setActivities(data);
+
+        // Client-side time filter
+        if (selectedTime !== 'all') {
+          const now = new Date();
+          const filteredData = data.filter(activity => {
+            const activityDate = new Date(activity.date);
+            const diffTime = activityDate.getTime() - now.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (selectedTime === 'week') {
+              return diffDays >= 0 && diffDays <= 7;
+            } else if (selectedTime === 'month') {
+              return diffDays >= 0 && diffDays <= 30;
+            }
+            return true;
+          });
+          setActivities(filteredData);
+        } else {
+          setActivities(data);
+        }
       } catch (error) {
         showToast('加载活动失败', 'error');
         console.error('Failed to fetch activities:', error);
@@ -36,7 +61,7 @@ const Activities: React.FC = () => {
     };
 
     fetchActivities();
-  }, [selectedCategory, selectedStatus]);
+  }, [selectedCategory, selectedStatus, selectedTime]);
 
   return (
     <div className="flex h-full w-full overflow-hidden">
@@ -45,7 +70,7 @@ const Activities: React.FC = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-800">活动筛选</h3>
           <button
-            onClick={() => { setSelectedCategory('全部类型'); setSelectedStatus('全部状态'); }}
+            onClick={() => { setSelectedCategory('全部类型'); setSelectedStatus('全部状态'); setSelectedTime('all'); }}
             className="text-sm font-medium text-primary hover:text-primary/80"
           >
             重置
@@ -85,6 +110,25 @@ const Activities: React.FC = () => {
                 }`}
               >
                 {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">活动时间</label>
+          <div className="flex flex-col gap-2">
+            {timeFilters.map(filter => (
+              <button
+                key={filter.value}
+                onClick={() => setSelectedTime(filter.value)}
+                className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                  selectedTime === filter.value
+                    ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                    : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
+                }`}
+              >
+                {filter.label}
               </button>
             ))}
           </div>

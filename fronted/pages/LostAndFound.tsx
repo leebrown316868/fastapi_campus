@@ -8,6 +8,7 @@ const LostAndFound: React.FC = () => {
   const { user } = useAuth();
   const [filter, setFilter] = useState<'all' | 'lost' | 'found'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [lostItems, setLostItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,7 +23,26 @@ const LostAndFound: React.FC = () => {
         if (categoryFilter !== 'all') params.category = categoryFilter;
 
         const data = await lostItemsService.getAll(params);
-        setLostItems(data);
+
+        // Client-side time filter
+        if (timeFilter !== 'all') {
+          const now = new Date();
+          const filteredData = data.filter(item => {
+            const createdDate = new Date(item.created_at);
+            const diffTime = now.getTime() - createdDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            if (timeFilter === 'week') {
+              return diffDays <= 7;
+            } else if (timeFilter === 'month') {
+              return diffDays <= 30;
+            }
+            return true;
+          });
+          setLostItems(filteredData);
+        } else {
+          setLostItems(data);
+        }
       } catch (error) {
         showToast('加载失物招领信息失败', 'error');
         console.error('Failed to fetch lost items:', error);
@@ -32,7 +52,7 @@ const LostAndFound: React.FC = () => {
     };
 
     fetchLostItems();
-  }, [filter, categoryFilter]);
+  }, [filter, categoryFilter, timeFilter]);
 
   // Get all categories from current items
   const categories = ['all', ...Array.from(new Set(lostItems.map(item => item.category)))];
@@ -64,9 +84,10 @@ const LostAndFound: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="glass-card rounded-2xl p-4 mb-8 flex flex-col lg:flex-row gap-4">
+      <div className="glass-card rounded-2xl p-4 mb-8 flex flex-col gap-4">
         {/* Type Filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-bold text-slate-600">类型：</span>
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === 'all'
@@ -94,33 +115,68 @@ const LostAndFound: React.FC = () => {
           >
             招领
           </button>
-        </div>
 
-        {/* Category Filter */}
-        <div className="flex items-center gap-2">
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-4 py-2 rounded-xl bg-white/60 text-slate-600 text-sm font-bold border-0 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer hover:bg-white/80 transition-all"
+          <div className="w-px h-6 bg-slate-300 mx-2"></div>
+
+          <span className="text-sm font-bold text-slate-600">时间：</span>
+          <button
+            onClick={() => setTimeFilter('all')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'all'
+                ? 'bg-slate-900 text-white'
+                : 'bg-white/60 text-slate-600 hover:bg-white/80'
+              }`}
           >
-            {categories.map(cat => (
-              <option key={cat} value={cat}>
-                {cat === 'all' ? '全部分类' : cat}
-              </option>
-            ))}
-          </select>
+            全部
+          </button>
+          <button
+            onClick={() => setTimeFilter('week')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'week'
+                ? 'bg-slate-900 text-white'
+                : 'bg-white/60 text-slate-600 hover:bg-white/80'
+              }`}
+          >
+            本周
+          </button>
+          <button
+            onClick={() => setTimeFilter('month')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'month'
+                ? 'bg-slate-900 text-white'
+                : 'bg-white/60 text-slate-600 hover:bg-white/80'
+              }`}
+          >
+            本月
+          </button>
         </div>
 
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-          <input
-            type="text"
-            placeholder="搜索物品名称或描述..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/60 text-slate-900 text-sm font-bold border-0 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-slate-400 hover:bg-white/80 transition-all"
-          />
+        {/* Category Filter & Search */}
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          {/* Category Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-slate-600">分类：</span>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-4 py-2 rounded-xl bg-white/60 text-slate-600 text-sm font-bold border-0 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer hover:bg-white/80 transition-all"
+            >
+              {categories.map(cat => (
+                <option key={cat} value={cat}>
+                  {cat === 'all' ? '全部分类' : cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 max-w-md w-full">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+            <input
+              type="text"
+              placeholder="搜索物品名称或描述..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/60 text-slate-900 text-sm font-bold border-0 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-slate-400 hover:bg-white/80 transition-all"
+            />
+          </div>
         </div>
       </div>
 

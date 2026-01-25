@@ -68,6 +68,21 @@ export const lostItemsService = {
   },
 
   /**
+   * Update lost item (owner or admin)
+   */
+  async update(id: number, data: Partial<{
+    title: string;
+    category: string;
+    description: string;
+    location: string;
+    images: string[];
+    tags: string[];
+    status: string;
+  }>): Promise<LostItem> {
+    return apiClient.patch<LostItem>(`/api/lost-items/${id}`, data);
+  },
+
+  /**
    * Delete lost item (owner or admin)
    */
   async delete(id: number): Promise<void> {

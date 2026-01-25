@@ -6,7 +6,7 @@ from sqlalchemy import select, or_
 from app.db.database import get_db
 from app.models.user import User
 from app.models.lost_item import LostItem
-from app.schemas.lost_item import LostItemCreate, LostItemResponse, PublisherInfo
+from app.schemas.lost_item import LostItemCreate, LostItemUpdate, LostItemResponse, PublisherInfo
 from app.api.deps import get_current_user, get_current_admin
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -150,6 +150,67 @@ async def create_lost_item(
         status=new_item.status,
         publisher=publisher.model_dump(),
         created_at=new_item.created_at,
+    )
+
+
+@router.patch("/{item_id}", response_model=LostItemResponse)
+async def update_lost_item(
+    item_id: int,
+    item_data: LostItemUpdate,
+    current_user: CurrentUser = None,
+    db: DatabaseSession = None,
+):
+    """Update a lost item (owner or admin only)."""
+    result = await db.execute(
+        select(LostItem).where(LostItem.id == item_id)
+    )
+    item = result.scalar_one_or_none()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Item not found"
+        )
+
+    # Check ownership or admin
+    if item.created_by != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this item"
+        )
+
+    # Update fields
+    update_data = item_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(item, field, value)
+
+    await db.commit()
+    await db.refresh(item)
+
+    # Get publisher info
+    publisher = None
+    if item.created_by:
+        user_result = await db.execute(select(User).where(User.id == item.created_by))
+        user = user_result.scalar_one_or_none()
+        if user:
+            publisher = PublisherInfo(
+                name=user.name,
+                avatar=user.avatar or ""
+            )
+
+    return LostItemResponse(
+        id=item.id,
+        title=item.title,
+        type=item.type,
+        category=item.category,
+        description=item.description,
+        location=item.location,
+        time=item.time,
+        images=item.images or [],
+        tags=item.tags or [],
+        status=item.status,
+        publisher=publisher.model_dump() if publisher else None,
+        created_at=item.created_at,
     )
 
 

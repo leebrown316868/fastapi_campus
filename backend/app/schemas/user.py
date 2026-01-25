@@ -45,11 +45,28 @@ class UserResponse(UserBase):
     major: Optional[str] = None
     bio: Optional[str] = None
     phone: Optional[str] = None
+    is_active: bool
     is_verified: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class UserStatusUpdate(BaseModel):
+    """User status update schema (admin only)."""
+    is_active: Optional[bool] = None
+
+
+class UserBulkDelete(BaseModel):
+    """Bulk delete users schema (admin only)."""
+    user_ids: list[int]
+
+
+class UserBulkUpdate(BaseModel):
+    """Bulk update users schema (admin only)."""
+    user_ids: list[int]
+    is_active: Optional[bool] = None
 
 
 class Token(BaseModel):

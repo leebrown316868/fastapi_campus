@@ -11,6 +11,7 @@ const transformNotification = (api: ApiNotification) => ({
 
 const Notifications: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [importantFilter, setImportantFilter] = useState<'all' | 'important'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -29,60 +30,51 @@ const Notifications: React.FC = () => {
 
     fetchNotifications();
   }, []);
+
+  // Filter notifications by importance
+  const filteredNotifications = notifications.filter(notification => {
+    if (importantFilter === 'important') return notification.isImportant;
+    return true;
+  });
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* Sidebar Filters */}
       <aside className="hidden lg:flex w-80 flex-col gap-6 border-r border-white/40 bg-white/40 backdrop-blur-lg p-6 overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-800">通知筛选</h3>
-          <button className="text-sm font-medium text-primary hover:text-primary/80">重置</button>
-        </div>
-        
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">搜索关键词</label>
-          <div className="relative">
-            <input 
-              className="w-full rounded-xl px-4 py-3 text-sm placeholder:text-slate-500 shadow-sm bg-white/50 border border-white/60 focus:bg-white/90 outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
-              placeholder="输入课程名或教师名..." 
-              type="text"
-            />
-            <span className="material-symbols-outlined absolute right-3 top-3 text-slate-400" style={{ fontSize: '20px' }}>manage_search</span>
-          </div>
+          <button
+            onClick={() => setImportantFilter('all')}
+            className="text-sm font-medium text-primary hover:text-primary/80"
+          >
+            重置
+          </button>
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">所属课程</label>
-          <div className="relative">
-            <select className="w-full appearance-none rounded-xl px-4 py-3 text-sm text-slate-700 shadow-sm bg-white/50 border border-white/60 outline-none focus:bg-white/90 cursor-pointer">
-              <option>所有正在学习的课程</option>
-              <option>CS 101: 计算机科学导论</option>
-              <option>ART 204: 现代设计</option>
-              <option>HIST 300: 世界历史</option>
-              <option>PHYS 101: 普通物理</option>
-            </select>
-            <span className="material-symbols-outlined absolute right-3 top-3 pointer-events-none text-slate-500">expand_more</span>
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">重要程度</label>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setImportantFilter('all')}
+              className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                importantFilter === 'all'
+                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                  : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
+              }`}
+            >
+              全部通知 ({notifications.length})
+            </button>
+            <button
+              onClick={() => setImportantFilter('important')}
+              className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                importantFilter === 'important'
+                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
+                  : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
+              }`}
+            >
+              仅看重要 ({notifications.filter(n => n.isImportant).length})
+            </button>
           </div>
         </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">发布日期</label>
-          <div className="flex items-center gap-2">
-            <button className="flex-1 rounded-xl py-2 text-sm text-slate-600 bg-white/50 border border-white/60 hover:bg-white/80">最近7天</button>
-            <button className="flex-1 rounded-xl py-2 text-sm text-slate-600 bg-white/50 border border-white/60 hover:bg-white/80">本月</button>
-          </div>
-        </div>
-
-        <div className="mt-2 flex items-center justify-between rounded-xl bg-white/30 p-4 border border-white/40">
-          <span className="text-sm font-medium text-slate-800">仅看未读消息</span>
-          <label className="relative inline-flex cursor-pointer items-center">
-            <input className="peer sr-only" type="checkbox" />
-            <div className="peer h-6 w-11 rounded-full bg-slate-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
-          </label>
-        </div>
-
-        <button className="mt-auto w-full rounded-xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-transform active:scale-95 hover:bg-blue-600">
-          应用筛选条件
-        </button>
       </aside>
 
       {/* Main List */}
@@ -104,14 +96,14 @@ const Notifications: React.FC = () => {
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
               <p className="mt-4 text-lg font-medium text-slate-500">加载中...</p>
             </div>
-          ) : notifications.length === 0 ? (
+          ) : filteredNotifications.length === 0 ? (
             <div className="glass-card rounded-2xl p-12 text-center">
               <span className="material-symbols-outlined text-6xl text-slate-300" style={{ fontSize: '64px' }}>notifications_none</span>
               <p className="mt-4 text-lg font-medium text-slate-500">暂无通知</p>
             </div>
           ) : (
             <div className="grid gap-5 pb-12">
-              {notifications.map((item) => (
+              {filteredNotifications.map((item) => (
               <div key={item.id} className="glass-card relative flex flex-col gap-4 rounded-2xl p-6 sm:flex-row sm:items-start group/card cursor-pointer hover:bg-white/90">
                 {item.isImportant && (
                   <div className="absolute left-0 top-6 h-12 w-1.5 rounded-r-lg bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
