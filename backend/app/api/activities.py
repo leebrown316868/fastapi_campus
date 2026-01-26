@@ -1,4 +1,5 @@
 from typing import List, Optional, Annotated
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -6,7 +7,8 @@ from sqlalchemy import select
 from app.db.database import get_db
 from app.models.user import User
 from app.models.activity import Activity
-from app.schemas.activity import ActivityCreate, ActivityResponse
+from app.models.user_notification import UserNotification
+from app.schemas.activity import ActivityCreate, ActivityUpdate, ActivityResponse
 from app.api.deps import get_current_user, get_current_admin
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -69,14 +71,39 @@ async def create_activity(
     db: DatabaseSession = None,
 ):
     """Create a new activity (admin only)."""
+    # Create activity with provided data
     new_activity = Activity(
         **activity_data.model_dump(),
         created_by=current_user.id
     )
 
+    # Auto-calculate status based on time fields
+    new_activity.status = new_activity.calculate_status()
+
     db.add(new_activity)
     await db.commit()
     await db.refresh(new_activity)
+
+    # Create user notifications for all active users
+    result = await db.execute(
+        select(User).where(User.is_active == True)
+    )
+    users = result.scalars().all()
+
+    for user in users:
+        user_notification = UserNotification(
+            user_id=user.id,
+            type="activity",
+            title=f"新活动发布：{new_activity.title}",
+            content=new_activity.description or f"快来报名参加{new_activity.title}！",
+            link_url=f"/activities/{new_activity.id}",
+            is_read=False,
+            created_at=datetime.utcnow(),
+            related_id=new_activity.id,
+        )
+        db.add(user_notification)
+
+    await db.commit()
 
     return ActivityResponse.model_validate(new_activity)
 
@@ -106,7 +133,7 @@ async def delete_activity(
 @router.patch("/{activity_id}", response_model=ActivityResponse)
 async def update_activity(
     activity_id: int,
-    activity_data: ActivityCreate,
+    activity_data: ActivityUpdate,
     current_user: CurrentAdmin = None,
     db: DatabaseSession = None,
 ):
@@ -123,8 +150,17 @@ async def update_activity(
         )
 
     # Update fields
-    for field, value in activity_data.model_dump(exclude_unset=True).items():
+    update_data = activity_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(activity, field, value)
+
+    # Recalculate status if time fields were updated
+    time_fields_updated = any(
+        field in update_data
+        for field in ['registration_start', 'registration_end', 'activity_start', 'activity_end']
+    )
+    if time_fields_updated:
+        activity.status = activity.calculate_status()
 
     await db.commit()
     await db.refresh(activity)

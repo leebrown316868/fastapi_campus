@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -7,12 +7,21 @@ class ActivityBase(BaseModel):
     """Base activity schema."""
     title: str
     description: str
-    date: str
+    date: str  # Legacy display date (kept for compatibility)
     location: str
     organizer: str
     image: str
-    category: str  # 文艺, 讲座, 体育, 科创
-    status: str = "报名中"  # 报名中, 进行中, 已结束
+    category: str  # lecture, competition, performance, sports, other
+    capacity: int = 0  # 人数上限，0表示不限
+
+    # New time fields
+    registration_start: Optional[datetime] = None  # 报名开始时间
+    registration_end: Optional[datetime] = None    # 报名结束时间
+    activity_start: datetime                       # 活动开始时间
+    activity_end: Optional[datetime] = None        # 活动结束时间
+
+    # Status is calculated automatically
+    status: str = "报名中"
 
 
 class ActivityCreate(ActivityBase):
@@ -29,6 +38,11 @@ class ActivityUpdate(BaseModel):
     organizer: Optional[str] = None
     image: Optional[str] = None
     category: Optional[str] = None
+    capacity: Optional[int] = None
+    registration_start: Optional[datetime] = None
+    registration_end: Optional[datetime] = None
+    activity_start: Optional[datetime] = None
+    activity_end: Optional[datetime] = None
     status: Optional[str] = None
 
 

@@ -1,4 +1,5 @@
 from typing import List, Optional, Annotated
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -6,6 +7,7 @@ from sqlalchemy import select
 from app.db.database import get_db
 from app.models.user import User
 from app.models.notification import Notification
+from app.models.user_notification import UserNotification
 from app.schemas.notification import NotificationCreate, NotificationResponse
 from app.api.deps import get_current_user, get_current_admin
 
@@ -99,6 +101,27 @@ async def create_notification(
     db.add(new_notification)
     await db.commit()
     await db.refresh(new_notification)
+
+    # Create user notifications for all active users
+    result = await db.execute(
+        select(User).where(User.is_active == True)
+    )
+    users = result.scalars().all()
+
+    for user in users:
+        user_notification = UserNotification(
+            user_id=user.id,
+            type="course",
+            title=f"新课程通知：{new_notification.title}",
+            content=f"{new_notification.course or '课程'}发布了新通知：{new_notification.title}",
+            link_url="/notifications",
+            is_read=False,
+            created_at=datetime.utcnow(),
+            related_id=new_notification.id,
+        )
+        db.add(user_notification)
+
+    await db.commit()
 
     return NotificationResponse(
         id=new_notification.id,

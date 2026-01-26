@@ -384,3 +384,125 @@ npm run dev
 - 选中状态：`bg-primary text-white shadow-sm` 或 `bg-white text-[color] shadow-sm`
 - 未选中：`text-slate-600 hover:text-slate-900`
 - 分隔线：`<div className="w-px h-6 bg-slate-200"></div>`
+
+---
+
+## Session Handoff - 2026-01-27
+
+### 1. Current Core Objective
+完成了 Campus Hub 用户通知系统实现，管理员发布内容时自动为所有活跃用户创建个人通知，用户可通过通知铃铛查看。
+
+### 2. Completed Work
+
+**New Files Created:**
+- `backend/app/api/user_notifications.py` - 个人通知API端点（GET /api/notifications/me, markAsRead, delete）
+- `backend/app/models/user_notification.py` - UserNotification SQLAlchemy模型
+- `backend/app/schemas/user_notification.py` - Pydantic请求/响应模式
+- `fronted/components/NotificationBell.tsx` - 通知铃铛组件（带未读计数徽章和下拉列表）
+- `fronted/services/userNotifications.service.ts` - 用户通知API服务层
+
+**Modified Files:**
+- `backend/main.py` - 重新排序路由注册（user_notifications.router 必须在 notifications.router 之前）
+- `backend/app/api/notifications.py` - 管理员发布通知时自动为所有用户创建个人通知
+- `backend/app/api/activities.py` - 管理员发布活动时自动为所有用户创建个人通知
+- `backend/init_db.py` - 使用 `datetime.utcnow()` 替代相对时间（修复"8小时前"问题）
+- `fronted/pages/Profile.tsx` - 添加通知标签页，支持 `?tab=notifications` URL参数
+
+**Working Flows:**
+1. 管理员发布课程通知/校园活动 → 后端自动为所有活跃用户创建个人通知
+2. 用户登录后每30秒轮询未读通知数量
+3. 通知铃铛显示红色徽章（未读数量）
+4. 点击铃铛 → 显示最近5条通知下拉列表
+5. 点击通知 → 标记为已读并跳转到相关页面
+6. 点击"查看全部通知" → 跳转到 `/profile?tab=notifications`
+
+### 3. Bugs Fixed
+
+**Bug #1: 422 Error on `/api/notifications/me?limit=5`**
+- **Root Cause:** 路由冲突 - `/{notification_id}` 路由匹配了 `/me` 路径，尝试将"me"转换为整数
+- **Solution:** 在 `main.py` 中重新排序路由注册：
+```python
+app.include_router(user_notifications.router)  # 必须在前
+app.include_router(notifications.router)        # 必须在后
+```
+
+**Bug #2: 通知时间显示"8小时前"**
+- **Root Cause:** `init_db.py` 使用相对时间 `now - timedelta(hours=1)`
+- **Solution:** 改为 `datetime.utcnow()` 创建当前时间戳
+
+**Bug #3: "查看全部通知"跳转后无通知界面**
+- **Root Cause:** Profile.tsx 缺少通知标签页和URL参数处理
+- **Solution:** 添加 `'notifications'` 标签类型、`useSearchParams()` 钩子和完整通知列表UI
+
+### 4. New API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/notifications/me` | Yes | 获取当前用户通知（支持 ?limit= 参数） |
+| GET | `/api/notifications/me/unread-count` | Yes | 获取未读通知数量 |
+| PATCH | `/api/notifications/me/{id}/read` | Yes | 标记通知为已读 |
+| PATCH | `/api/notifications/me/read-all` | Yes | 标记所有通知为已读 |
+| DELETE | `/api/notifications/me/{id}` | Yes | 删除通知 |
+
+### 5. Environment Variables & Key Values
+| Variable | Value |
+|----------|-------|
+| VITE_API_URL | http://localhost:8000 |
+| Frontend Port | 3000 |
+| Backend Port | 8000 |
+
+### 6. Next Actions (Prioritized)
+1. **决定提交策略:** 建议创建功能分支 `feature/user-notifications` 后提交
+2. **测试完整流程:** 管理员发布 → 学生接收 → 查看/标记已读
+3. **统一错误处理:** 401/403 自动跳转登录
+4. **图片上传功能:** 完成现有部分实现
+
+### 7. Quick Restart Command
+```bash
+# Terminal 1 - Backend
+cd backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 - Frontend
+cd fronted
+npm run dev
+```
+
+### 8. Critical Implementation Notes
+
+**路由顺序至关重要：**
+```python
+# 正确顺序 (main.py):
+app.include_router(user_notifications.router)  # /api/notifications/me
+app.include_router(notifications.router)        # /api/notifications/{id}
+```
+
+**URL参数处理模式：**
+```tsx
+// 读取 ?tab=notifications
+const [searchParams] = useSearchParams();
+useEffect(() => {
+  const tab = searchParams.get('tab') as TabType;
+  if (tab && ['posts', 'notifications', ...].includes(tab)) {
+    setActiveTab(tab);
+  }
+}, [searchParams]);
+```
+
+**自动创建通知模式：**
+```python
+# 管理员发布时为所有活跃用户创建通知
+result = await db.execute(select(User).where(User.is_active == True))
+users = result.scalars().all()
+for user in users:
+    user_notification = UserNotification(
+        user_id=user.id,
+        type="course",
+        title=f"新课程通知：{title}",
+        content=content,
+        link_url="/notifications",
+        is_read=False,
+        created_at=datetime.utcnow(),
+    )
+    db.add(user_notification)
+```

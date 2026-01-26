@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { NAV_ITEMS } from '../constants';
+import NotificationBell from './NotificationBell';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
@@ -138,9 +139,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               />
             </div>
             <div className="flex gap-3 items-center">
-              <button className="flex items-center justify-center rounded-full h-10 w-10 bg-white/50 text-slate-900 hover:bg-white transition-colors border border-white/60 shadow-sm">
-                <span className="material-symbols-outlined text-gray-700">notifications</span>
-              </button>
+              {/* Notification Bell */}
+              <NotificationBell />
 
               {user ? (
                 <div className="relative" ref={dropdownRef}>

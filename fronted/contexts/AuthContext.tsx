@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useNavigate } from 'react-router-dom';
 import { User, AuthContextType } from '../types';
 import { authService } from '../services';
+import { apiClient } from '../services/api';
 import { showToast } from '../components/Toast';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +46,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  // Register auth error handler for automatic logout on 401/403
+  useEffect(() => {
+    const handleAuthError = () => {
+      // Get login type to determine redirect path
+      const loginType = localStorage.getItem(USER_TYPE_KEY);
+      const targetPath = loginType === 'admin' ? '/admin/login' : '/login';
+
+      // Clear user state
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem(USER_TYPE_KEY);
+
+      // Navigate to login
+      navigate(targetPath);
+
+      // Show toast (use a flag to avoid showing multiple toasts)
+      showToast('登录已过期，请重新登录', 'warning');
+    };
+
+    apiClient.setAuthErrorHandler(handleAuthError);
+
+    // Cleanup on unmount
+    return () => {
+      apiClient.setAuthErrorHandler(null);
+    };
+  }, [navigate]);
 
   const login = useCallback(async (username: string, password: string, isAdmin: boolean) => {
     setIsLoading(true);

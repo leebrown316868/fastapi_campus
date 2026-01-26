@@ -9,8 +9,15 @@ export interface Activity {
   organizer: string;
   image: string;
   category: string;
+  capacity: number;
   status: string;
+  // Time fields (nullable for activities without registration)
+  registration_start: string | null;
+  registration_end: string | null;
+  activity_start: string;
+  activity_end: string | null;
   created_at: string;
+  created_by?: number;
 }
 
 export const activitiesService = {
@@ -55,6 +62,11 @@ export const activitiesService = {
     organizer: string;
     image: string;
     category: string;
+    capacity?: number;
+    activity_start: string;
+    activity_end: string | null;
+    registration_start: string | null;
+    registration_end: string | null;
     status?: string;
   }): Promise<Activity> {
     return apiClient.post<Activity>('/api/activities', data);
@@ -78,7 +90,12 @@ export const activitiesService = {
     organizer?: string;
     image?: string;
     category?: string;
+    capacity?: number;
     status?: string;
+    registration_start?: string | null;
+    registration_end?: string | null;
+    activity_start?: string;
+    activity_end?: string | null;
   }): Promise<Activity> {
     return apiClient.patch<Activity>(`/api/activities/${id}`, data);
   },

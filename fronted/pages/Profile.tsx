@@ -1,23 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { lostItemsService } from '../services/lostItems.service';
 import { notificationsService } from '../services/notifications.service';
 import { activitiesService } from '../services/activities.service';
 import { usersService } from '../services/users.service';
+import { uploadsService } from '../services/uploads.service';
+import { userNotificationsService } from '../services/userNotifications.service';
 import { showToast } from '../components/Toast';
 
-type TabType = 'posts' | 'edit-profile' | 'change-password';
+type TabType = 'posts' | 'notifications' | 'edit-profile' | 'change-password';
 
 const Profile: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabType>('posts');
   const [myLostItems, setMyLostItems] = useState<any[]>([]);
   const [myNotifications, setMyNotifications] = useState<any[]>([]);
   const [myActivities, setMyActivities] = useState<any[]>([]);
+  const [userNotificationsList, setUserNotificationsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string>(user?.avatar || '');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle tab from URL params
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabType;
+    if (tab && ['posts', 'notifications', 'edit-profile', 'change-password'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -25,6 +40,7 @@ const Profile: React.FC = () => {
     major: user?.major || '',
     bio: user?.bio || '',
     phone: user?.phone || '',
+    avatar: user?.avatar || '',
   });
 
   // Password form state
@@ -64,6 +80,22 @@ const Profile: React.FC = () => {
     loadUserData();
   }, [user]);
 
+  // Load user notifications when notifications tab is active
+  useEffect(() => {
+    const loadUserNotifications = async () => {
+      if (!user || activeTab !== 'notifications') return;
+
+      try {
+        const notifications = await userNotificationsService.getAll({ limit: 50 });
+        setUserNotificationsList(notifications);
+      } catch (error) {
+        console.error('Failed to load user notifications:', error);
+      }
+    };
+
+    loadUserNotifications();
+  }, [user, activeTab]);
+
   // Update profile form when user data changes
   useEffect(() => {
     if (user) {
@@ -72,7 +104,9 @@ const Profile: React.FC = () => {
         major: user.major || '',
         bio: user.bio || '',
         phone: user.phone || '',
+        avatar: user.avatar || '',
       });
+      setAvatarPreview(user.avatar || '');
     }
   }, [user]);
 
@@ -89,6 +123,50 @@ const Profile: React.FC = () => {
       showToast(error.message || '更新失败，请稍后重试', 'error');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (isUploadingAvatar) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showToast('请选择图片文件', 'error');
+      return;
+    }
+
+    // Validate file size (2MB max for avatar)
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('图片大小不能超过 2MB', 'error');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      // Create preview
+      const preview = uploadsService.createPreviewUrl(file);
+      setAvatarPreview(preview);
+
+      // Upload to server
+      const result = await uploadsService.uploadImage(file);
+
+      // Update form with new avatar URL
+      setProfileForm({ ...profileForm, avatar: result.url });
+      setAvatarPreview(result.url);
+
+      // Auto-save avatar
+      await usersService.updateMe({ avatar: result.url });
+      await refreshUser();
+
+      showToast('头像更新成功！', 'success');
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      showToast(error.message || '头像上传失败', 'error');
+      // Reset preview on error
+      setAvatarPreview(profileForm.avatar || user?.avatar || '');
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -200,6 +278,16 @@ const Profile: React.FC = () => {
                 }`}
               >
                 我的发布
+              </button>
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${
+                  activeTab === 'notifications'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                消息通知
               </button>
               <button
                 onClick={() => setActiveTab('edit-profile')}
@@ -316,6 +404,64 @@ const Profile: React.FC = () => {
               </div>
             )}
 
+            {/* Notifications Tab */}
+            {activeTab === 'notifications' && (
+              <div className="space-y-3">
+                {userNotificationsList.length === 0 ? (
+                  <div className="text-center py-12">
+                    <span className="material-symbols-outlined text-5xl text-slate-300" style={{ fontSize: '48px' }}>notifications_none</span>
+                    <p className="mt-3 text-slate-500 font-medium">暂无通知</p>
+                  </div>
+                ) : (
+                  userNotificationsList.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`flex items-start gap-4 p-5 rounded-2xl transition-all ${
+                        !notification.is_read ? 'bg-blue-50/50 border border-blue-100' : 'bg-white/40 hover:bg-white/70'
+                      }`}
+                    >
+                      {/* Icon */}
+                      <div className={`size-12 rounded-xl flex items-center justify-center shrink-0 ${
+                        notification.type === 'activity'
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : notification.type === 'lost_found'
+                          ? 'bg-orange-50 text-orange-600'
+                          : notification.type === 'course'
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'bg-slate-50 text-slate-600'
+                      }`}>
+                        <span className="material-symbols-outlined text-lg">
+                          {notification.type === 'activity'
+                            ? 'event'
+                            : notification.type === 'lost_found'
+                            ? 'search'
+                            : notification.type === 'course'
+                            ? 'school'
+                            : 'notifications'}
+                        </span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className={`text-sm font-medium ${!notification.is_read ? 'text-slate-900' : 'text-slate-600'}`}>
+                            {notification.title}
+                          </h4>
+                          {!notification.is_read && (
+                            <span className="size-2 rounded-full bg-primary shrink-0 mt-1.5"></span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 line-clamp-2 mt-1">{notification.content}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {new Date(notification.created_at).toLocaleString('zh-CN')}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
             {/* Edit Profile Tab */}
             {activeTab === 'edit-profile' && (
               <div className="space-y-6">
@@ -326,14 +472,40 @@ const Profile: React.FC = () => {
 
                 {/* Avatar */}
                 <div className="flex items-center gap-6 pb-6 border-b border-slate-100">
-                  <div className="size-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-100">
-                    <img src={user.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuCUtxxC52ARabd-8SDwIbftfDI6ffT14_teLYKKqt0ptE9jATkW5nDw_NbrfEMy0oqANCqIxmTTblvFVQ-m1L2OTJm4i6rleTc0SYELXCD-ThiXcS3mjg-PIfVU4ToWOsIm-e5Ebm_la-c6TANnBdV1tu-Fc1Qt7KBZGpKL1kI20f9aJfLVcmUVb8MbSv0dXBprfi3j1sNFeGD-ud5eddnfTks1_UTxE0UvfXAsxAorLfWZoJJxEd8l32iXZ3PlWAzOUj2W7WpAZMSm"} alt={user.name} className="w-full h-full object-cover" />
+                  <div className="relative group">
+                    <div className="size-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-100">
+                      {isUploadingAvatar ? (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                          <div className="animate-spin rounded-full h-8 w-8 border-3 border-slate-200 border-t-primary"></div>
+                        </div>
+                      ) : (
+                        <img
+                          src={avatarPreview || "https://lh3.googleusercontent.com/aida-public/AB6AXuCUtxxC52ARabd-8SDwIbftfDI6ffT14_teLYKKqt0ptE9jATkW5nDw_NbrfEMy0oqANCqIxmTTblvFVQ-m1L2OTJm4i6rleTc0SYELXCD-ThiXcS3mjg-PIfVU4ToWOsIm-e5Ebm_la-c6TANnBdV1tu-Fc1Qt7KBZGpKL1kI20f9aJfLVcmUVb8MbSv0dXBprfi3j1sNFeGD-ud5eddnfTks1_UTxE0UvfXAsxAorLfWZoJJxEd8l32iXZ3PlWAzOUj2W7WpAZMSm"}
+                          alt={user.name}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarUpload(file);
+                      }}
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-900">头像</p>
-                    <p className="text-xs text-slate-500 mb-3">支持 JPG、PNG 格式</p>
-                    <button className="px-4 py-2 rounded-xl bg-white/60 border border-white/60 text-sm font-bold text-slate-700 hover:bg-white transition-all">
-                      更换头像
+                    <p className="text-xs text-slate-500 mb-3">支持 JPG、PNG 格式，最大 2MB</p>
+                    <button
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                      className="px-4 py-2 rounded-xl bg-white/60 border border-white/60 text-sm font-bold text-slate-700 hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isUploadingAvatar ? '上传中...' : '更换头像'}
                     </button>
                   </div>
                 </div>

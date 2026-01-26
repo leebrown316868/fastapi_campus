@@ -5,6 +5,8 @@ import { notificationsService } from '../services/notifications.service';
 import { activitiesService } from '../services/activities.service';
 import { lostItemsService } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
+import ImageUpload from '../components/ImageUpload';
+import MultiImageUpload from '../components/MultiImageUpload';
 
 type Category = 'course' | 'activity' | 'lost';
 
@@ -32,12 +34,26 @@ const Publish: React.FC = () => {
   const [activityForm, setActivityForm] = useState({
     title: '',
     description: '',
-    date: '',
     location: '',
     category: 'lecture',
-    status: 'upcoming',
     organizer: user?.name || 'Admin',
-    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
+    image: '',
+    capacity: 0,
+    // Whether registration is required
+    hasRegistration: false,
+    // Time fields
+    registration_start: '',
+    registration_end: '',
+    activity_start: '',
+    activity_end: '',
+    // Legacy display date (will be auto-generated)
+    date: '',
+  });
+
+  // Time validation errors
+  const [timeErrors, setTimeErrors] = useState({
+    registration: '',
+    activity: '',
   });
 
   // 失物招领表单状态
@@ -48,6 +64,7 @@ const Publish: React.FC = () => {
     description: '',
     location: '',
     time: '',
+    images: [] as string[],
   });
 
   // 权限检查
@@ -91,11 +108,75 @@ const Publish: React.FC = () => {
         case 'activity':
           // 验证活动公告表单
           if (!activityForm.title.trim() || !activityForm.description.trim() ||
-              !activityForm.date || !activityForm.location.trim()) {
+              !activityForm.activity_start || !activityForm.location.trim()) {
             showToast('请填写所有必填项', 'error');
             return;
           }
-          await activitiesService.create(activityForm);
+
+          // Validate time fields
+          const validationErrors = { registration: '', activity: '' };
+          const now = new Date();
+          const activityStart = new Date(activityForm.activity_start);
+          const activityEnd = activityForm.activity_end ? new Date(activityForm.activity_end) : null;
+
+          // Validate activity time
+          if (activityEnd && activityEnd <= activityStart) {
+            validationErrors.activity = '活动结束时间必须晚于活动开始时间';
+          }
+
+          // Validate registration time if enabled
+          if (activityForm.hasRegistration) {
+            if (!activityForm.registration_start || !activityForm.registration_end) {
+              showToast('请填写完整的报名时间', 'error');
+              return;
+            }
+
+            const registrationStart = new Date(activityForm.registration_start);
+            const registrationEnd = new Date(activityForm.registration_end);
+
+            if (registrationStart >= registrationEnd) {
+              validationErrors.registration = '报名结束时间必须晚于报名开始时间';
+            } else if (registrationEnd >= activityStart) {
+              validationErrors.registration = '报名结束时间必须早于活动开始时间';
+            }
+          }
+
+          setTimeErrors(validationErrors);
+
+          if (validationErrors.registration || validationErrors.activity) {
+            showToast('请修正时间设置错误', 'error');
+            return;
+          }
+
+          // Generate display date from activity_start
+          const generateDisplayDate = (dateStr: string) => {
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            return `${year}年${month}月${day}日 ${hours}:${minutes.toString().padStart(2, '0')}`;
+          };
+
+          // Prepare data for API
+          const activityData = {
+            title: activityForm.title,
+            description: activityForm.description,
+            location: activityForm.location,
+            category: activityForm.category,
+            organizer: activityForm.organizer,
+            image: activityForm.image,
+            capacity: activityForm.capacity,
+            date: generateDisplayDate(activityForm.activity_start),
+            activity_start: activityForm.activity_start,
+            activity_end: activityForm.activity_end || null,
+            // Only include registration fields if registration is enabled
+            registration_start: activityForm.hasRegistration ? activityForm.registration_start : null,
+            registration_end: activityForm.hasRegistration ? activityForm.registration_end : null,
+          };
+
+          await activitiesService.create(activityData);
           showToast('活动公告发布成功！', 'success');
           navigate('/activities');
           break;
@@ -203,16 +284,7 @@ const Publish: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-900">日期 <span className="text-red-500">*</span></label>
-                <input
-                  className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
-                  type="date"
-                  value={activityForm.date}
-                  onChange={(e) => setActivityForm({ ...activityForm, date: e.target.value })}
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-900">活动类别</label>
                 <div className="relative">
@@ -236,9 +308,171 @@ const Publish: React.FC = () => {
                 <label className="block text-sm font-bold text-slate-900">人数上限</label>
                 <input
                   className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
-                  placeholder="不限"
+                  placeholder="0 表示不限"
                   type="number"
+                  min="0"
+                  value={activityForm.capacity || ''}
+                  onChange={(e) => setActivityForm({ ...activityForm, capacity: parseInt(e.target.value) || 0 })}
                 />
+              </div>
+            </div>
+
+            {/* Time Settings Section */}
+            <div className="bg-emerald-50/50 rounded-2xl p-6 border border-emerald-100">
+              <h4 className="text-sm font-bold text-emerald-900 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-600">schedule</span>
+                时间设置
+              </h4>
+
+              {/* Registration Toggle */}
+              <div className="flex items-center justify-between mb-6 p-4 bg-white/60 rounded-xl">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">需要报名</p>
+                  <p className="text-xs text-slate-500">开启后用户可报名参加活动</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newValue = !activityForm.hasRegistration;
+                    setActivityForm({
+                      ...activityForm,
+                      hasRegistration: newValue,
+                      // Clear registration times when turning off
+                      registration_start: newValue ? activityForm.registration_start : '',
+                      registration_end: newValue ? activityForm.registration_end : '',
+                    });
+                    setTimeErrors({ ...timeErrors, registration: '' });
+                  }}
+                  className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
+                    activityForm.hasRegistration ? 'bg-emerald-500' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                      activityForm.hasRegistration ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* 报名时间 - only shown when hasRegistration is true */}
+                {activityForm.hasRegistration && (
+                  <div className={`animate-fade-in ${timeErrors.registration ? 'bg-red-50/50 -mx-2 px-2 py-2 -my-2 rounded-xl' : ''}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-bold text-slate-600">报名时间</p>
+                      {timeErrors.registration && (
+                        <p className="text-xs font-bold text-red-600 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">error</span>
+                          {timeErrors.registration}
+                        </p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500">报名开始</label>
+                        <input
+                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                            timeErrors.registration
+                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                              : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                          }`}
+                          type="datetime-local"
+                          value={activityForm.registration_start}
+                          onChange={(e) => {
+                            setActivityForm({ ...activityForm, registration_start: e.target.value });
+                            setTimeErrors({ ...timeErrors, registration: '' });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500">报名结束</label>
+                        <input
+                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                            timeErrors.registration
+                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                              : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                          }`}
+                          type="datetime-local"
+                          value={activityForm.registration_end}
+                          onChange={(e) => {
+                            setActivityForm({ ...activityForm, registration_end: e.target.value });
+                            setTimeErrors({ ...timeErrors, registration: '' });
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2">
+                      报名结束时间必须早于活动开始时间
+                    </p>
+                  </div>
+                )}
+
+                {/* 活动时间 */}
+                <div className={timeErrors.activity ? 'bg-red-50/50 -mx-2 px-2 py-2 -my-2 rounded-xl' : ''}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold text-slate-600">活动时间 <span className="text-red-500">*</span></p>
+                    {timeErrors.activity && (
+                      <p className="text-xs font-bold text-red-600 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        {timeErrors.activity}
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-500">活动开始 <span className="text-red-500">*</span></label>
+                      <input
+                        className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                          timeErrors.activity
+                            ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                            : 'border-emerald-300 focus:ring-emerald-500/10 focus:border-emerald-500'
+                        }`}
+                        type="datetime-local"
+                        value={activityForm.activity_start}
+                        onChange={(e) => {
+                          setActivityForm({ ...activityForm, activity_start: e.target.value });
+                          setTimeErrors({ ...timeErrors, activity: '' });
+                        }}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-500">活动结束</label>
+                      <input
+                        className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                          timeErrors.activity
+                            ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                            : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                        }`}
+                        type="datetime-local"
+                        value={activityForm.activity_end}
+                        onChange={(e) => {
+                          setActivityForm({ ...activityForm, activity_end: e.target.value });
+                          setTimeErrors({ ...timeErrors, activity: '' });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Preview */}
+              <div className="mt-4 pt-4 border-t border-emerald-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">预计状态</span>
+                  <span className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                    {!activityForm.hasRegistration
+                      ? '公示活动（无需报名）'
+                      : activityForm.registration_start && new Date(activityForm.registration_start) > new Date()
+                        ? '即将开始报名'
+                        : activityForm.activity_start
+                          ? new Date(activityForm.activity_start) > new Date()
+                            ? '报名中'
+                            : '进行中'
+                          : '报名中'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -252,13 +486,12 @@ const Publish: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-slate-900">宣传海报</label>
-              <div className="relative group cursor-pointer h-40 border-2 border-dashed border-slate-300 rounded-xl bg-white/30 flex flex-col items-center justify-center hover:bg-white/50 hover:border-emerald-500/50 transition-all">
-                <span className="material-symbols-outlined text-emerald-500 mb-2">image</span>
-                <p className="text-xs font-bold text-slate-600">点击或拖拽上传活动海报</p>
-              </div>
-            </div>
+            <ImageUpload
+              label="宣传海报"
+              value={activityForm.image}
+              onChange={(url) => setActivityForm({ ...activityForm, image: url || '' })}
+              theme="emerald"
+            />
           </div>
         );
 
@@ -329,18 +562,12 @@ const Publish: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-slate-900">上传实物照片</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="aspect-square border-2 border-dashed border-slate-300 rounded-xl bg-white/30 flex flex-col items-center justify-center hover:bg-white/50 hover:border-orange-500/50 transition-all cursor-pointer">
-                  <span className="material-symbols-outlined text-orange-500">add_a_photo</span>
-                  <span className="text-[10px] font-bold text-slate-500 mt-1">上传照片</span>
-                </div>
-                <div className="aspect-square bg-slate-100/50 rounded-xl border border-slate-200 flex items-center justify-center text-slate-300 italic text-[10px]">待添加</div>
-                <div className="aspect-square bg-slate-100/50 rounded-xl border border-slate-200 flex items-center justify-center text-slate-300 italic text-[10px]">待添加</div>
-                <div className="aspect-square bg-slate-100/50 rounded-xl border border-slate-200 flex items-center justify-center text-slate-300 italic text-[10px]">待添加</div>
-              </div>
-            </div>
+            <MultiImageUpload
+              label="上传实物照片"
+              value={lostForm.images}
+              onChange={(urls) => setLostForm({ ...lostForm, images: urls })}
+              maxImages={4}
+            />
           </div>
         );
     }

@@ -5,6 +5,7 @@ Run this script to create the database and default admin user.
 import asyncio
 import sys
 import io
+from datetime import datetime, timedelta
 
 # Set UTF-8 encoding for Windows console
 if sys.platform == "win32":
@@ -14,7 +15,7 @@ if sys.platform == "win32":
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import engine, async_session_maker, Base
-from app.models import User, Notification, Activity, LostItem
+from app.models import User, Notification, Activity, LostItem, UserNotification
 from app.core.security import get_password_hash
 
 
@@ -110,6 +111,13 @@ async def create_admin_user():
             select(func.count(Activity.id))
         )
         if activity_count.scalar() == 0:
+            # Calculate dates relative to now for sample data
+            now = datetime.utcnow()
+            registration_start = now + timedelta(hours=1)
+            registration_end = now + timedelta(days=7)
+            activity_start = now + timedelta(days=14)
+            activity_end = activity_start + timedelta(hours=3)
+
             activities = [
                 Activity(
                     title="2024 校园春季音乐节",
@@ -119,6 +127,11 @@ async def create_admin_user():
                     organizer="学生艺术团",
                     image="https://images.unsplash.com/photo-1459749411177-042180ce673c?q=80&w=2070&auto=format&fit=crop",
                     category="文艺",
+                    capacity=500,
+                    registration_start=registration_start,
+                    registration_end=registration_end,
+                    activity_start=activity_start,
+                    activity_end=activity_end,
                     status="报名中",
                 ),
                 Activity(
@@ -128,8 +141,13 @@ async def create_admin_user():
                     location="图书馆报告厅",
                     organizer="计算机学院",
                     image="https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=2070&auto=format&fit=crop",
-                    category="讲座",
-                    status="进行中",
+                    category="lecture",
+                    capacity=200,
+                    registration_start=now - timedelta(days=2),
+                    registration_end=now + timedelta(days=1),
+                    activity_start=now + timedelta(days=5),
+                    activity_end=now + timedelta(days=5, hours=2),
+                    status="报名中",
                 ),
                 Activity(
                     title="校园马拉松接力赛",
@@ -138,7 +156,12 @@ async def create_admin_user():
                     location="北操场",
                     organizer="体育部",
                     image="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?q=80&w=2070&auto=format&fit=crop",
-                    category="体育",
+                    category="sports",
+                    capacity=0,  # unlimited
+                    registration_start=now - timedelta(days=5),
+                    registration_end=now + timedelta(days=2),
+                    activity_start=now + timedelta(days=7),
+                    activity_end=now + timedelta(days=7, hours=4),
                     status="报名中",
                 ),
             ]
@@ -192,6 +215,71 @@ async def create_admin_user():
             print("[OK] Sample lost items created")
         else:
             print("[OK] Lost items already exist")
+
+        # Create sample user notifications
+        user_notification_count = await session.execute(
+            select(func.count(UserNotification.id))
+        )
+        if user_notification_count.scalar() == 0:
+            now = datetime.utcnow()
+
+            # Get student user for notifications
+            student_result = await session.execute(
+                select(User).where(User.email == "student@campus.edu")
+            )
+            student = student_result.scalar_one()
+
+            # Get activity and lost item IDs for related notifications
+            activity_result = await session.execute(
+                select(Activity).limit(1)
+            )
+            first_activity = activity_result.scalar_one()
+
+            user_notifications = [
+                UserNotification(
+                    user_id=student.id,
+                    type="system",
+                    title="欢迎使用校园门户",
+                    content="欢迎来到 Campus Hub！在这里你可以查看课程通知、活动公告和失物招领信息。",
+                    link_url="/home",
+                    is_read=False,
+                    created_at=datetime.utcnow(),
+                ),
+                UserNotification(
+                    user_id=student.id,
+                    type="activity",
+                    title="新活动发布：校园春季音乐节",
+                    content="汇集校园顶尖乐队与歌手，为你带来一场视听盛宴。快来报名参加吧！",
+                    link_url=f"/activities/{first_activity.id}" if first_activity else "/activities",
+                    is_read=False,
+                    related_id=first_activity.id if first_activity else None,
+                    created_at=datetime.utcnow(),
+                ),
+                UserNotification(
+                    user_id=student.id,
+                    type="lost_found",
+                    title="你的失物招领发布成功",
+                    content='你发布的"苹果 AirPods Pro 耳机"信息已成功发布。我们会持续关注，一旦有消息会第一时间通知你。',
+                    link_url="/lost-and-found",
+                    is_read=True,
+                    created_at=datetime.utcnow(),
+                ),
+                UserNotification(
+                    user_id=student.id,
+                    type="course",
+                    title="课程通知更新",
+                    content="CS 101 计算机科学导论发布了新的期中考试时间调整通知。",
+                    link_url="/notifications",
+                    is_read=True,
+                    created_at=datetime.utcnow(),
+                ),
+            ]
+            for notification in user_notifications:
+                session.add(notification)
+            await session.commit()
+            print("[OK] Sample user notifications created")
+        else:
+            print("[OK] User notifications already exist")
 
 
 async def main():

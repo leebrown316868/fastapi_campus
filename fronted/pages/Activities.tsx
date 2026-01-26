@@ -217,9 +217,20 @@ const Activities: React.FC = () => {
                           <span className="material-symbols-outlined text-primary">apartment</span>
                           <span>{activities[0].organizer}</span>
                         </div>
+                        {/* Registration indicator */}
+                        {activities[0].registration_start && activities[0].registration_end && (
+                          <div className="flex items-center gap-3 text-emerald-600 font-medium">
+                            <span className="material-symbols-outlined text-emerald-600">how_to_reg</span>
+                            <span className="text-sm">需报名</span>
+                          </div>
+                        )}
                       </div>
-                      <button className="w-fit bg-primary text-white px-8 py-3.5 rounded-2xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 transition-all active:scale-95">
-                        立即报名
+                      <button className={`w-fit px-8 py-3.5 rounded-2xl font-bold shadow-lg hover:-translate-y-1 transition-all active:scale-95 ${
+                        activities[0].registration_start && activities[0].registration_end
+                          ? 'bg-primary text-white shadow-primary/30 hover:shadow-primary/50'
+                          : 'bg-slate-100 text-slate-700 shadow-slate-200 hover:bg-slate-200'
+                      }`}>
+                        {activities[0].registration_start && activities[0].registration_end ? '立即报名' : '查看详情'}
                       </button>
                     </div>
                   </div>

@@ -1,20 +1,69 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MOCK_ACTIVITIES } from '../constants';
+import { activitiesService } from '../services/activities.service';
+import { showToast } from '../components/Toast';
 
 const ActivityDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const activity = MOCK_ACTIVITIES.find(a => a.id === id);
+  const [activity, setActivity] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!activity) return <div className="p-20 text-center font-bold text-slate-900">活动不存在</div>;
+  useEffect(() => {
+    const fetchActivity = async () => {
+      if (!id) return;
+
+      try {
+        setIsLoading(true);
+        const data = await activitiesService.getById(parseInt(id));
+        setActivity(data);
+      } catch (error) {
+        console.error('Failed to fetch activity:', error);
+        showToast('加载活动失败', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchActivity();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-[1000px] mx-auto px-6 py-10">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activity) {
+    return (
+      <div className="w-full max-w-[1000px] mx-auto px-6 py-10">
+        <div className="glass-card rounded-[2rem] p-12 text-center">
+          <span className="material-symbols-outlined text-6xl text-slate-300" style={{ fontSize: '64px' }}>event_busy</span>
+          <h2 className="mt-4 text-xl font-bold text-slate-900">活动不存在</h2>
+          <p className="mt-2 text-slate-500">该活动可能已被删除或不存在</p>
+          <Link
+            to="/activities"
+            className="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-xl bg-primary text-white font-bold hover:bg-blue-600 transition-colors"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+            返回活动列表
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const hasRegistration = activity.registration_start && activity.registration_end;
 
   return (
     <div className="w-full max-w-[1000px] mx-auto px-6 py-10">
       {/* Navigation & Back */}
       <div className="flex items-center gap-4 mb-8">
-        <button 
+        <button
           onClick={() => navigate(-1)}
           className="size-10 rounded-xl bg-white/60 border border-white/60 shadow-sm flex items-center justify-center text-slate-600 hover:bg-white transition-all"
         >
@@ -36,9 +85,19 @@ const ActivityDetail: React.FC = () => {
               <span className="px-3 py-1 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
                 {activity.category}
               </span>
-              <span className="px-3 py-1 rounded-full bg-white/90 text-slate-900 text-[10px] font-black uppercase tracking-widest shadow-lg">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg ${
+                activity.status === '进行中' ? 'bg-blue-500 text-white' :
+                activity.status === '已结束' ? 'bg-slate-400 text-white' :
+                'bg-emerald-500 text-white'
+              }`}>
                 {activity.status}
               </span>
+              {hasRegistration && (
+                <span className="px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-emerald-600 text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">how_to_reg</span>
+                  需报名
+                </span>
+              )}
             </div>
             <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight drop-shadow-md leading-tight">
               {activity.title}
@@ -55,8 +114,6 @@ const ActivityDetail: React.FC = () => {
               </h3>
               <p className="text-slate-600 leading-relaxed text-lg whitespace-pre-line">
                 {activity.description}
-                {"\n\n"}
-                无论是学术交流还是文艺汇演，校园活动总是充满惊喜与活力。本次活动由{activity.organizer}精心策划，旨在为全校师生提供一个展示自我、交流心得的优质平台。名额有限，先到先得。
               </p>
             </section>
 
@@ -86,6 +143,41 @@ const ActivityDetail: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Registration Time Info */}
+            {hasRegistration && (
+              <div className="p-6 rounded-[1.5rem] bg-emerald-50/50 border border-emerald-100">
+                <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">event_available</span>
+                  报名时间
+                </h4>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium">开始</p>
+                    <p className="font-bold text-slate-900">
+                      {new Date(activity.registration_start).toLocaleString('zh-CN', {
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <span className="text-slate-300">→</span>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500 font-medium">结束</p>
+                    <p className="font-bold text-slate-900">
+                      {new Date(activity.registration_end).toLocaleString('zh-CN', {
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <aside className="w-full lg:w-80 shrink-0">
@@ -102,9 +194,15 @@ const ActivityDetail: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <button className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 transform active:scale-95 transition-all">
-                  立即报名
-                </button>
+                {hasRegistration ? (
+                  <button className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 transform active:scale-95 transition-all">
+                    立即报名
+                  </button>
+                ) : (
+                  <button disabled className="w-full bg-slate-100 text-slate-400 py-4 rounded-2xl font-black cursor-not-allowed">
+                    无需报名
+                  </button>
+                )}
                 <button className="w-full bg-white border border-slate-200 text-slate-700 py-4 rounded-2xl font-black hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
                   <span className="material-symbols-outlined text-xl">share</span>
                   分享活动
@@ -118,10 +216,12 @@ const ActivityDetail: React.FC = () => {
                     <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
                     需携带学生证件
                   </li>
-                  <li className="flex gap-2">
-                    <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
-                    报名截止：11月14日
-                  </li>
+                  {hasRegistration && (
+                    <li className="flex gap-2">
+                      <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
+                      名额有限，先到先得
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>

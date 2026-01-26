@@ -33,12 +33,21 @@ export interface ApiError {
   detail: string;
 }
 
+// Auth error callback type
+type AuthErrorHandler = () => void;
+
 // Base API client
 class ApiClient {
   private baseURL: string;
+  private onAuthError: AuthErrorHandler | null = null;
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
+  }
+
+  // Register auth error handler (called when 401/403 occurs)
+  setAuthErrorHandler(handler: AuthErrorHandler | null) {
+    this.onAuthError = handler;
   }
 
   private getHeaders(includeAuth = true): HeadersInit {
@@ -70,6 +79,14 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      // Handle authentication errors (401 Unauthorized, 403 Forbidden)
+      if (response.status === 401 || response.status === 403) {
+        // Call the registered auth error handler
+        if (this.onAuthError) {
+          this.onAuthError();
+        }
+      }
+
       const error: ApiError = await response.json().catch(() => ({ detail: response.statusText }));
       throw new Error(error.detail || 'Request failed');
     }
@@ -120,6 +137,14 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      // Handle authentication errors (401 Unauthorized, 403 Forbidden)
+      if (response.status === 401 || response.status === 403) {
+        // Call the registered auth error handler
+        if (this.onAuthError) {
+          this.onAuthError();
+        }
+      }
+
       const error: ApiError = await response.json().catch(() => ({ detail: response.statusText }));
       throw new Error(error.detail || 'Request failed');
     }
@@ -136,6 +161,14 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      // Handle authentication errors (401 Unauthorized, 403 Forbidden)
+      if (response.status === 401 || response.status === 403) {
+        // Call the registered auth error handler
+        if (this.onAuthError) {
+          this.onAuthError();
+        }
+      }
+
       const error: ApiError = await response.json().catch(() => ({ detail: response.statusText }));
       throw new Error(error.detail || 'Request failed');
     }
