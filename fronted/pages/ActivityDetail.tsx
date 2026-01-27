@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { activitiesService } from '../services/activities.service';
+import activityRegistrationsService, { ActivityRegistration } from '../services/activityRegistrations.service';
+import { useAuth } from '../contexts/AuthContext';
 import { showToast } from '../components/Toast';
 
 const ActivityDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activity, setActivity] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [myRegistrations, setMyRegistrations] = useState<ActivityRegistration[]>([]);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     const fetchActivity = async () => {
@@ -27,6 +33,69 @@ const ActivityDetail: React.FC = () => {
 
     fetchActivity();
   }, [id]);
+
+  // Fetch user's registrations
+  useEffect(() => {
+    const fetchMyRegistrations = async () => {
+      if (!user) return;
+
+      try {
+        const registrations = await activityRegistrationsService.getMyRegistrations();
+        setMyRegistrations(registrations);
+      } catch (error) {
+        console.error('Failed to fetch registrations:', error);
+      }
+    };
+
+    fetchMyRegistrations();
+  }, [user]);
+
+  // Check if user has registered for this activity
+  const hasRegistered = myRegistrations.some(r => r.activity_id === parseInt(id || '0') && r.status === 'confirmed');
+
+  // Handle registration button click
+  const handleRegisterClick = () => {
+    if (!user) {
+      showToast('请先登录', 'warning');
+      navigate('/login');
+      return;
+    }
+
+    if (hasRegistered) {
+      showToast('您已报名该活动', 'warning');
+      return;
+    }
+
+    // Show confirmation dialog
+    setShowConfirmDialog(true);
+  };
+
+  // Handle registration confirm
+  const handleRegistrationConfirm = async () => {
+    try {
+      setIsRegistering(true);
+
+      // Use user's profile information directly
+      await activityRegistrationsService.create(parseInt(id || '0'), {
+        name: user.name || '',
+        student_id: user.student_id || '',
+        phone: user.phone || '',
+        remark: '',
+      });
+
+      showToast('报名成功！', 'success');
+      setShowConfirmDialog(false);
+
+      // Refresh registrations
+      const registrations = await activityRegistrationsService.getMyRegistrations();
+      setMyRegistrations(registrations);
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      showToast(error.response?.data?.detail || '报名失败，请稍后重试', 'error');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -138,7 +207,6 @@ const ActivityDetail: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-black text-slate-900">{activity.location}</p>
-                    <p className="text-xs text-slate-500 font-medium">查看地图指引</p>
                   </div>
                 </div>
               </div>
@@ -194,8 +262,15 @@ const ActivityDetail: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                {hasRegistration ? (
-                  <button className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 transform active:scale-95 transition-all">
+                {hasRegistered ? (
+                  <button disabled className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-500/30 cursor-not-allowed">
+                    ✓ 已报名
+                  </button>
+                ) : hasRegistration ? (
+                  <button
+                    onClick={handleRegisterClick}
+                    className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 transform active:scale-95 transition-all"
+                  >
                     立即报名
                   </button>
                 ) : (
@@ -211,23 +286,86 @@ const ActivityDetail: React.FC = () => {
 
               <div className="mt-8 pt-6 border-t border-slate-100">
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 text-center">注意事项</p>
-                <ul className="text-xs text-slate-500 space-y-2">
-                  <li className="flex gap-2">
-                    <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
-                    需携带学生证件
-                  </li>
-                  {hasRegistration && (
+                {activity.notes ? (
+                  <div className="text-xs text-slate-600 bg-amber-50 rounded-lg p-3">
+                    <p className="whitespace-pre-wrap">{activity.notes}</p>
+                  </div>
+                ) : (
+                  <ul className="text-xs text-slate-500 space-y-2">
                     <li className="flex gap-2">
                       <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
-                      名额有限，先到先得
+                      需携带学生证件
                     </li>
-                  )}
-                </ul>
+                    {hasRegistration && (
+                      <li className="flex gap-2">
+                        <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
+                        名额有限，先到先得
+                      </li>
+                    )}
+                  </ul>
+                )}
               </div>
             </div>
           </aside>
         </div>
       </div>
+
+      {/* Registration Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowConfirmDialog(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="p-6 text-center">
+              <div className="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl">event_available</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">确认报名</h3>
+              <p className="text-slate-600 mb-6">
+                确定要报名参加<br/>
+                <span className="font-bold text-slate-900">「{activity?.title}」</span><br/>
+                吗？
+              </p>
+
+              <div className="flex flex-col gap-3 text-sm text-slate-500 mb-6">
+                <div className="flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-lg">person</span>
+                  <span>{user?.name}</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-lg">badge</span>
+                  <span>{user?.student_id}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  disabled={isRegistering}
+                  className="flex-1 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleRegistrationConfirm}
+                  disabled={isRegistering}
+                  className="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isRegistering ? (
+                    <>
+                      <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      报名中...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined">check</span>
+                      确认报名
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

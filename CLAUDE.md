@@ -82,6 +82,20 @@ CurrentAdmin = Annotated[User, Depends(get_current_admin)]
 DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
 ```
 
+### FastAPI Route Ordering Pattern
+
+**Critical:** When registering routers in `main.py`, specific routes MUST be registered before parameterized routes to avoid conflicts:
+
+```python
+# CORRECT order in main.py:
+app.include_router(user_notifications.router)      # /api/notifications/me (specific)
+app.include_router(notifications.router)            # /api/notifications/{id} (parameterized)
+app.include_router(activity_registrations.router)   # /api/activities/my-registrations (specific)
+app.include_router(activities.router)               # /api/activities/{id} (parameterized)
+```
+
+**Rule:** Routes with literal segments (like `/me`, `/my-registrations`) must be defined before routes with path parameters (like `/{id}`), otherwise FastAPI will try to parse the literal as a parameter and return 422.
+
 ## Project Structure
 
 ```
@@ -103,13 +117,19 @@ hub-claudecode/
 │   │   ├── notifications.service.ts
 │   │   ├── activities.service.ts
 │   │   ├── lostItems.service.ts
-│   │   └── users.service.ts
+│   │   ├── users.service.ts
+│   │   ├── activityRegistrations.service.ts
+│   │   ├── userNotifications.service.ts
+│   │   └── uploads.service.ts
 │   ├── contexts/
 │   │   └── AuthContext.tsx         # Auth state with API integration
 │   ├── components/
 │   │   ├── Layout.tsx              # Main layout (no admin link in dropdown)
 │   │   ├── ProtectedRoute.tsx      # ⭐ Route guard component
-│   │   └── Toast.tsx               # Toast notifications
+│   │   ├── Toast.tsx               # Toast notifications
+│   │   ├── NotificationBell.tsx    # Notification bell with unread count
+│   │   ├── ImageUpload.tsx         # Single image upload component
+│   │   └── MultiImageUpload.tsx    # Multiple image upload component
 │   ├── types.ts                    # TypeScript types
 │   └── constants.tsx               # Legacy mock data (deprecated)
 │
@@ -190,6 +210,16 @@ hub-claudecode/
 | GET | `/api/users/me` | Yes | Get current user profile |
 | PATCH | `/api/users/me` | Yes | Update profile |
 | POST | `/api/users/me/change-password` | Yes | Change password |
+| GET | `/api/notifications/me` | Yes | Get current user's personal notifications |
+| GET | `/api/notifications/me/unread-count` | Yes | Get unread notification count |
+| PATCH | `/api/notifications/me/{id}/read` | Yes | Mark notification as read |
+| PATCH | `/api/notifications/me/read-all` | Yes | Mark all notifications as read |
+| DELETE | `/api/notifications/me/{id}` | Yes | Delete notification |
+| GET | `/api/activities/my-registrations` | Yes | Get user's activity registrations |
+| POST | `/api/activities/{activity_id}/register` | Yes | Register for an activity |
+| GET | `/api/activities/{activity_id}/registrations` | Admin | Get activity registration list |
+| DELETE | `/api/activities/registrations/{registration_id}` | Yes | Cancel registration |
+| POST | `/api/uploads/images` | User+ | Upload image file |
 
 ## Component Patterns
 
@@ -214,6 +244,15 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 </ProtectedRoute>
 ```
 
+### Notification Bell
+```tsx
+import { NotificationBell } from '../components/NotificationBell';
+
+// Automatically polls unread count every 30 seconds
+// Shows dropdown with recent 5 notifications on click
+<NotificationBell />
+```
+
 ## Environment Variables
 
 **Backend (.env):**
@@ -230,6 +269,8 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 **bcrypt version conflict:** Fixed at bcrypt==4.0.1 (compatible with passlib 1.7.4)
 
 **FastAPI Annotated Depends conflicts:** Each API file redefines type aliases internally (see Architecture section)
+
+**FastAPI route conflicts (422 errors):** Specific routes like `/me` or `/my-registrations` must be registered before parameterized routes like `/{id}` in main.py (see Route Ordering Pattern)
 
 **Windows console Unicode errors:** `init_db.py` sets UTF-8 encoding wrapper for win32
 
@@ -505,4 +546,129 @@ for user in users:
         created_at=datetime.utcnow(),
     )
     db.add(user_notification)
+```
+
+---
+
+## Session Handoff - 2026-01-28
+
+### 1. Current Core Objective
+完成了活动报名系统实现和路由冲突修复，学生可以报名活动，管理员可查看报名名单。
+
+### 2. Completed Work
+
+**New Files Created:**
+- `backend/app/api/activity_registrations.py` - 活动报名API端点
+- `backend/app/models/activity_registration.py` - ActivityRegistration SQLAlchemy模型
+- `backend/app/schemas/activity_registration.py` - Pydantic请求/响应模式
+- `fronted/services/activityRegistrations.service.ts` - 活动报名API服务层
+- `backend/fix_registration_times.py` - 修复活动报名时间脚本
+- `backend/check_activity.py` - 检查活动报名状态脚本
+
+**Modified Files:**
+- `backend/main.py` - 重新排序路由注册（activity_registrations.router 必须在 activities.router 之前）
+- `fronted/pages/ActivityDetail.tsx` - 添加报名确认对话框，复用用户资料信息
+- `fronted/pages/AdminDashboard.tsx` - 添加查看报名名单模态框
+
+**Working Flows:**
+1. 学生点击"立即报名"按钮 → 显示确认对话框（显示用户姓名、学号）
+2. 确认后调用 POST /api/activities/{id}/register 创建报名
+3. 管理后台活动列表 → 点击"查看报名"按钮 → 显示该活动所有报名学生名单
+4. 报名状态：confirmed（已确认）、cancelled（已取消）、attended（已参加）
+
+### 3. Bugs Fixed
+
+**Bug #1: 422 Error on `/api/activities/my-registrations`**
+- **Root Cause:** 路由冲突 - activities.router 的 `/{activity_id}` 在 activity_registrations.router 的 `/my-registrations` 之前注册
+- **Solution:** 在 `main.py` 中重新排序路由注册：
+```python
+app.include_router(activity_registrations.router)  # 必须在前
+app.include_router(activities.router)              # 必须在后
+```
+
+**Bug #2: 400 Error "Registration is not open at this time"**
+- **Root Cause:** 生成的测试活动报名开始时间是未来时间（如21:36，而当前是16:15）
+- **Solution:** 创建 `fix_registration_times.py` 脚本，将所有未来活动的报名时间设置为"立即开始"
+```python
+reg_start = now  # 报名立即开始
+reg_end = act_start  # 报名截止到活动开始
+```
+
+### 4. New API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/activities/my-registrations` | Yes | 获取当前用户的报名列表 |
+| POST | `/api/activities/{activity_id}/register` | Yes | 报名参加活动 |
+| GET | `/api/activities/{activity_id}/registrations` | Admin | 获取活动的报名名单（支持状态筛选） |
+| DELETE | `/api/activities/registrations/{registration_id}` | Yes | 取消报名 |
+
+### 5. Environment Variables & Key Values
+| Variable | Value |
+|----------|-------|
+| VITE_API_URL | http://localhost:8000 |
+| Frontend Port | 3000 |
+| Backend Port | 8000 |
+
+### 6. Next Actions (Prioritized)
+1. **测试报名流程:** 学生登录 → 访问活动详情 → 点击报名 → 管理员查看名单
+2. **取消报名功能:** 前端添加取消报名按钮
+3. **统一错误处理:** 401/403 自动跳转登录
+4. **图片上传功能:** 完成现有部分实现
+
+### 7. Quick Restart Command
+```bash
+# Terminal 1 - Backend
+cd backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 - Frontend
+cd fronted
+npm run dev
+```
+
+### 8. Critical Implementation Notes
+
+**路由顺序（main.py）：**
+```python
+# 正确顺序 - 具体路由必须在参数化路由之前
+app.include_router(user_notifications.router)      # /api/notifications/me
+app.include_router(notifications.router)            # /api/notifications/{id}
+app.include_router(activity_registrations.router)   # /api/activities/my-registrations
+app.include_router(activities.router)               # /api/activities/{id}
+```
+
+**活动时间检查逻辑：**
+```python
+# 检查报名是否开放
+now = datetime.utcnow()
+if now < activity.registration_start or now > activity.registration_end:
+    raise HTTPException(400, "Registration is not open at this time")
+
+# 检查是否已报名（状态为 confirmed 或 attended）
+existing = await db.execute(
+    select(ActivityRegistration).where(
+        and_(
+            ActivityRegistration.activity_id == activity_id,
+            ActivityRegistration.user_id == current_user.id,
+            ActivityRegistration.status.in_(["confirmed", "attended"])
+        )
+    )
+)
+```
+
+**报名确认对话框模式（ActivityDetail.tsx）：**
+```tsx
+// 复用用户信息，无需填写表单
+const handleRegistrationConfirm = async () => {
+  await activityRegistrationsService.create(activityId, {
+    name: user.name || '',
+    student_id: user.student_id || '',
+    phone: user.phone || '',
+    remark: '',
+  });
+  // 刷新报名列表
+  const registrations = await activityRegistrationsService.getMyRegistrations();
+  setMyRegistrations(registrations);
+};
 ```

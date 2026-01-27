@@ -10,6 +10,7 @@ class ActivityBase(BaseModel):
     date: str  # Legacy display date (kept for compatibility)
     location: str
     organizer: str
+    notes: Optional[str] = None  # 注意事项
     image: str
     category: str  # lecture, competition, performance, sports, other
     capacity: int = 0  # 人数上限，0表示不限
@@ -36,6 +37,7 @@ class ActivityUpdate(BaseModel):
     date: Optional[str] = None
     location: Optional[str] = None
     organizer: Optional[str] = None
+    notes: Optional[str] = None
     image: Optional[str] = None
     category: Optional[str] = None
     capacity: Optional[int] = None

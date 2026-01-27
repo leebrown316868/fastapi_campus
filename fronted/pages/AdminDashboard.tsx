@@ -4,6 +4,7 @@ import { notificationsService } from '../services/notifications.service';
 import { activitiesService } from '../services/activities.service';
 import { lostItemsService } from '../services/lostItems.service';
 import { usersService } from '../services/users.service';
+import activityRegistrationsService, { ActivityRegistration } from '../services/activityRegistrations.service';
 import { showToast } from '../components/Toast';
 
 type TabType = 'overview' | 'users' | 'notifications' | 'activities' | 'lost-found';
@@ -28,6 +29,16 @@ const AdminDashboard: React.FC = () => {
     isOpen: boolean;
   }>({ type: null, item: null, isOpen: false });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Registration view modal states
+  const [registrationsModal, setRegistrationsModal] = useState<{
+    activityId: number | null;
+    activityName: string;
+    isOpen: boolean;
+  }>({ activityId: null, activityName: '', isOpen: false });
+  const [registrations, setRegistrations] = useState<ActivityRegistration[]>([]);
+  const [registrationsTotal, setRegistrationsTotal] = useState(0);
+  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
 
   // User import states
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -115,6 +126,29 @@ const AdminDashboard: React.FC = () => {
 
   const closeEditModal = () => {
     setEditModal({ type: null, item: null, isOpen: false });
+  };
+
+  // Registration handlers
+  const openRegistrationsModal = async (activityId: number, activityName: string) => {
+    setRegistrationsModal({ activityId, activityName, isOpen: true });
+    setIsLoadingRegistrations(true);
+
+    try {
+      const data = await activityRegistrationsService.getActivityRegistrations(activityId);
+      setRegistrations(data.registrations);
+      setRegistrationsTotal(data.total);
+    } catch (error) {
+      console.error('Failed to load registrations:', error);
+      showToast('加载报名名单失败', 'error');
+    } finally {
+      setIsLoadingRegistrations(false);
+    }
+  };
+
+  const closeRegistrationsModal = () => {
+    setRegistrationsModal({ activityId: null, activityName: '', isOpen: false });
+    setRegistrations([]);
+    setRegistrationsTotal(0);
   };
 
   const handleSave = async (data: any) => {
@@ -375,6 +409,16 @@ const AdminDashboard: React.FC = () => {
                     className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-slate-900">注意事项</label>
+                  <textarea
+                    defaultValue={editModal.item.notes || ''}
+                    id="edit-notes"
+                    rows={2}
+                    placeholder="例如：请提前15分钟入场、活动期间请保持安静等"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-slate-900">日期</label>
@@ -427,10 +471,12 @@ const AdminDashboard: React.FC = () => {
                       id="edit-category"
                       className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     >
-                      <option value="文艺">文艺</option>
-                      <option value="讲座">讲座</option>
-                      <option value="体育">体育</option>
-                      <option value="其他">其他</option>
+                      <option value="学术讲座">学术讲座</option>
+                      <option value="文艺演出">文艺演出</option>
+                      <option value="体育赛事">体育赛事</option>
+                      <option value="社团活动">社团活动</option>
+                      <option value="志愿服务">志愿服务</option>
+                      <option value="就业招聘">就业招聘</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -534,6 +580,7 @@ const AdminDashboard: React.FC = () => {
                 } else if (editModal.type === 'activity') {
                   const title = (document.getElementById('edit-title') as HTMLInputElement)?.value;
                   const description = (document.getElementById('edit-description') as HTMLTextAreaElement)?.value;
+                  const notes = (document.getElementById('edit-notes') as HTMLTextAreaElement)?.value;
                   const date = (document.getElementById('edit-date') as HTMLInputElement)?.value;
                   const location = (document.getElementById('edit-location') as HTMLInputElement)?.value;
                   const organizer = (document.getElementById('edit-organizer') as HTMLInputElement)?.value;
@@ -542,6 +589,7 @@ const AdminDashboard: React.FC = () => {
                   const image = (document.getElementById('edit-image') as HTMLInputElement)?.value;
                   if (title) data.title = title;
                   if (description) data.description = description;
+                  if (notes) data.notes = notes;
                   if (date) data.date = date;
                   if (location) data.location = location;
                   if (organizer) data.organizer = organizer;
@@ -993,6 +1041,14 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => openRegistrationsModal(item.id, item.title)}
+                      className="px-4 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary/30 transition-colors text-sm font-medium"
+                      title="查看报名名单"
+                    >
+                      <span className="material-symbols-outlined text-lg mr-1">groups</span>
+                      报名
+                    </button>
                     <button
                       onClick={() => openEditModal('activity', item)}
                       className="size-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary/30 transition-colors"
@@ -1689,6 +1745,97 @@ const AdminDashboard: React.FC = () => {
 
       {/* Edit Modal */}
       {renderEditModal()}
+
+      {/* Registrations Modal */}
+      {registrationsModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={closeRegistrationsModal}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">报名名单</h3>
+                <p className="text-sm text-slate-500">{registrationsModal.activityName}</p>
+              </div>
+              <button onClick={closeRegistrationsModal} className="size-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-auto p-6">
+              {isLoadingRegistrations ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center">
+                    <div className="inline-block size-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 font-medium">加载中...</p>
+                  </div>
+                </div>
+              ) : registrations.length === 0 ? (
+                <div className="text-center py-12">
+                  <span className="material-symbols-outlined text-5xl text-slate-300">group_off</span>
+                  <p className="mt-3 text-slate-500 font-medium">暂无报名</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-slate-500">共 {registrationsTotal} 人报名</p>
+                  </div>
+
+                  {/* Registrations Table */}
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">姓名</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">学号</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">联系电话</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">备注</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">报名时间</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">状态</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {registrations.map((reg) => (
+                          <tr key={reg.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm font-medium text-slate-900">{reg.name}</td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{reg.student_id}</td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{reg.phone || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{reg.remark || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-slate-600">
+                              {new Date(reg.created_at).toLocaleString('zh-CN')}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
+                                reg.status === 'confirmed'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : reg.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {reg.status === 'confirmed' ? '已确认' : reg.status === 'cancelled' ? '已取消' : reg.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={closeRegistrationsModal}
+                className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

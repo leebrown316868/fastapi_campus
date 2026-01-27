@@ -217,6 +217,16 @@ const Activities: React.FC = () => {
                           <span className="material-symbols-outlined text-primary">apartment</span>
                           <span>{activities[0].organizer}</span>
                         </div>
+                        {/* Notes/注意事项 */}
+                        {activities[0].notes && (
+                          <div className="flex items-start gap-3 text-amber-600 font-medium bg-amber-50 rounded-lg p-3">
+                            <span className="material-symbols-outlined text-amber-600 text-sm mt-0.5">info</span>
+                            <div>
+                              <span className="text-xs font-bold">注意事项：</span>
+                              <span className="text-sm ml-1">{activities[0].notes}</span>
+                            </div>
+                          </div>
+                        )}
                         {/* Registration indicator */}
                         {activities[0].registration_start && activities[0].registration_end && (
                           <div className="flex items-center gap-3 text-emerald-600 font-medium">
@@ -271,6 +281,12 @@ const Activities: React.FC = () => {
                           <span className="material-symbols-outlined text-base text-primary/70">apartment</span>
                           {activity.organizer}
                         </div>
+                        {activity.notes && (
+                          <div className="flex items-center gap-1.5 text-amber-600">
+                            <span className="material-symbols-outlined text-sm">info</span>
+                            <span className="text-xs">有注意事项</span>
+                          </div>
+                        )}
                       </div>
                       <p className="text-slate-600 text-sm line-clamp-2 mb-6">
                         {activity.description}
@@ -290,14 +306,6 @@ const Activities: React.FC = () => {
               </section>
             </>
           )}
-
-          {/* Load More Button */}
-          <div className="flex justify-center pb-12">
-            <button className="flex items-center gap-2 rounded-full bg-white/30 px-8 py-3.5 text-sm font-bold text-slate-800 backdrop-blur-md transition-all hover:bg-white/50 hover:shadow-lg hover:-translate-y-1 border border-white/40">
-              加载更多历史活动
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>history</span>
-            </button>
-          </div>
         </div>
       </main>
     </div>

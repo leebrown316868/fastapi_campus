@@ -86,7 +86,7 @@ const Profile: React.FC = () => {
       if (!user || activeTab !== 'notifications') return;
 
       try {
-        const notifications = await userNotificationsService.getAll({ limit: 50 });
+        const notifications = await userNotificationsService.getAll({ limit: 20 });
         setUserNotificationsList(notifications);
       } catch (error) {
         console.error('Failed to load user notifications:', error);

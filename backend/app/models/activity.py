@@ -25,6 +25,7 @@ class Activity(Base):
 
     location: Mapped[str] = mapped_column(String(200), nullable=False)
     organizer: Mapped[str] = mapped_column(String(100), nullable=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)  # 注意事项
     image: Mapped[str] = mapped_column(String(500), nullable=False)
     category: Mapped[str] = mapped_column(String(50), nullable=False)  # 文艺, 讲座, 体育, 科创
     capacity: Mapped[int] = mapped_column(default=0)  # 人数上限，0表示不限

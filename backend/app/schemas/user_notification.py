@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from typing import Optional
 from datetime import datetime
 
@@ -29,6 +29,11 @@ class UserNotificationResponse(UserNotificationBase):
     is_read: bool
     created_at: datetime
     related_id: Optional[int] = None
+
+    @field_serializer('created_at')
+    def serialize_created_at(self, dt: datetime, _info):
+        """Serialize datetime to ISO 8601 with 'Z' suffix to indicate UTC time."""
+        return dt.isoformat() + 'Z'
 
     class Config:
         from_attributes = True

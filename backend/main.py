@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.db.database import init_db
-from app.api import auth, notifications, activities, lost_items, users, uploads, user_notifications
+from app.api import auth, notifications, activities, lost_items, users, uploads, user_notifications, activity_registrations
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(user_notifications.router)  # Must be before notifications.router to avoid route conflicts
 app.include_router(notifications.router)
+app.include_router(activity_registrations.router)  # Must be before activities.router to avoid /my-registrations route conflict
 app.include_router(activities.router)
 app.include_router(lost_items.router)
 app.include_router(users.router)

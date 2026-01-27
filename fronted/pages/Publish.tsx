@@ -35,8 +35,9 @@ const Publish: React.FC = () => {
     title: '',
     description: '',
     location: '',
-    category: 'lecture',
-    organizer: user?.name || 'Admin',
+    category: '学术讲座',
+    organizer: '',
+    notes: '',
     image: '',
     capacity: 0,
     // Whether registration is required
@@ -49,6 +50,27 @@ const Publish: React.FC = () => {
     // Legacy display date (will be auto-generated)
     date: '',
   });
+
+  // 活动类别选项
+  const activityCategories = [
+    '学术讲座',
+    '文艺演出',
+    '体育赛事',
+    '社团活动',
+    '志愿服务',
+    '就业招聘',
+  ];
+
+  // 活动地点选项
+  const activityLocations = [
+    '图书馆报告厅',
+    '学生活动中心',
+    '体育馆',
+    '教学楼A101',
+    '大礼堂',
+    '操场',
+    '创业园',
+  ];
 
   // Time validation errors
   const [timeErrors, setTimeErrors] = useState({
@@ -108,7 +130,7 @@ const Publish: React.FC = () => {
         case 'activity':
           // 验证活动公告表单
           if (!activityForm.title.trim() || !activityForm.description.trim() ||
-              !activityForm.activity_start || !activityForm.location.trim()) {
+              !activityForm.activity_start || !activityForm.location.trim() || !activityForm.organizer.trim()) {
             showToast('请填写所有必填项', 'error');
             return;
           }
@@ -166,6 +188,7 @@ const Publish: React.FC = () => {
             location: activityForm.location,
             category: activityForm.category,
             organizer: activityForm.organizer,
+            notes: activityForm.notes,
             image: activityForm.image,
             capacity: activityForm.capacity,
             date: generateDisplayDate(activityForm.activity_start),
@@ -273,18 +296,18 @@ const Publish: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-900">活动地点 <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-900">主办方 <span className="text-red-500">*</span></label>
                 <input
                   className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900 placeholder-slate-400"
-                  placeholder="例如：学生活动中心广场"
+                  placeholder="例如：学生会、团委、文艺部等"
                   type="text"
-                  value={activityForm.location}
-                  onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
+                  value={activityForm.organizer}
+                  onChange={(e) => setActivityForm({ ...activityForm, organizer: e.target.value })}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-900">活动类别</label>
                 <div className="relative">
@@ -293,16 +316,24 @@ const Publish: React.FC = () => {
                     value={activityForm.category}
                     onChange={(e) => setActivityForm({ ...activityForm, category: e.target.value })}
                   >
-                    <option value="lecture">讲座</option>
-                    <option value="competition">竞赛</option>
-                    <option value="performance">演出</option>
-                    <option value="sports">体育</option>
-                    <option value="other">其他</option>
+                    {activityCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                   <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
                     <span className="material-symbols-outlined">expand_more</span>
                   </div>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-900">活动地点 <span className="text-red-500">*</span></label>
+                <input
+                  className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900 placeholder-slate-400"
+                  placeholder="例如：图书馆三楼报告厅、学生活动中心大礼堂等"
+                  type="text"
+                  value={activityForm.location}
+                  onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-900">人数上限</label>
@@ -484,6 +515,17 @@ const Publish: React.FC = () => {
                 value={activityForm.description}
                 onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-900">注意事项</label>
+              <textarea
+                className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-slate-900 placeholder-slate-400 resize-none min-h-[80px]"
+                placeholder="例如：请提前15分钟入场、活动期间请保持安静、禁止携带食物饮料等..."
+                value={activityForm.notes}
+                onChange={(e) => setActivityForm({ ...activityForm, notes: e.target.value })}
+              />
+              <p className="text-xs text-slate-400">选填，用于提示参与者需要注意的事项</p>
             </div>
 
             <ImageUpload

@@ -139,13 +139,6 @@ const Notifications: React.FC = () => {
             ))}
             </div>
           )}
-
-          <div className="flex justify-center pb-12">
-            <button className="flex items-center gap-2 rounded-full bg-white/30 px-8 py-3.5 text-sm font-bold text-slate-800 backdrop-blur-md transition-all hover:bg-white/50 hover:shadow-lg hover:-translate-y-1 border border-white/40">
-              加载更多历史通知
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>history</span>
-            </button>
-          </div>
         </div>
       </main>
     </div>
