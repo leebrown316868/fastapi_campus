@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { lostItemsService, LostItem as ApiLostItem } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
+import DottedBackground from '../components/DottedBackground';
 
 const LostAndFound: React.FC = () => {
   const { user } = useAuth();
@@ -12,6 +13,11 @@ const LostAndFound: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [lostItems, setLostItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   // Fetch lost items from API
   useEffect(() => {
@@ -65,7 +71,11 @@ const LostAndFound: React.FC = () => {
   });
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto px-6 py-8">
+    <div className="relative min-h-screen">
+      {/* Dynamic Dotted Background */}
+      <DottedBackground />
+
+      <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
       {/* Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -230,6 +240,7 @@ const LostAndFound: React.FC = () => {
           <p className="text-slate-500 font-bold mt-4">没有找到相关物品</p>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { activitiesService, Activity as ApiActivity } from '../services/activities.service';
 import { useAuth } from '../contexts/AuthContext';
 import { showToast } from '../components/Toast';
+import DottedBackground from '../components/DottedBackground';
 
 const Activities: React.FC = () => {
   const { user } = useAuth();
@@ -13,6 +14,11 @@ const Activities: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState<'all' | 'week' | 'month'>('all');
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   const categories = ['全部类型', '文艺', '讲座', '体育', '科创'];
   const statuses = ['全部状态', '报名中', '进行中', '已结束'];
@@ -64,68 +70,75 @@ const Activities: React.FC = () => {
   }, [selectedCategory, selectedStatus, selectedTime]);
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
-      {/* Sidebar Filters */}
-      <aside className="hidden lg:flex w-80 flex-col gap-6 border-r border-white/40 bg-white/40 backdrop-blur-lg p-6 overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">活动筛选</h3>
-          <button
-            onClick={() => { setSelectedCategory('全部类型'); setSelectedStatus('全部状态'); setSelectedTime('all'); }}
-            className="text-sm font-medium text-primary hover:text-primary/80"
-          >
-            重置
-          </button>
+    <div className="relative min-h-screen">
+      {/* Dynamic Dotted Background */}
+      <DottedBackground />
+
+      <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Header */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">活动公告</h1>
+            <p className="text-lg text-slate-600 mt-1">发现校园里的精彩时刻，丰富你的大学生活。</p>
+          </div>
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => navigate('/publish?type=activity')}
+              className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all"
+            >
+              <span className="material-symbols-outlined">add_circle</span>
+              发布活动
+            </button>
+          )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">活动类型</label>
-          <div className="flex flex-col gap-2">
+        {/* Filters */}
+        <div className="glass-card rounded-2xl p-4 mb-8 flex flex-col gap-4">
+          {/* Category Filter */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-slate-600">类型：</span>
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedCategory === cat
-                    ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                    : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
+                    ? 'bg-primary text-white'
+                    : 'bg-white/60 text-slate-600 hover:bg-white/80'
                 }`}
               >
                 {cat}
               </button>
             ))}
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">活动状态</label>
-          <div className="flex flex-col gap-2">
+            <div className="w-px h-6 bg-slate-300 mx-2"></div>
+
+            <span className="text-sm font-bold text-slate-600">状态：</span>
             {statuses.map(status => (
               <button
                 key={status}
                 onClick={() => setSelectedStatus(status)}
-                className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedStatus === status
-                    ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                    : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
+                    ? 'bg-primary text-white'
+                    : 'bg-white/60 text-slate-600 hover:bg-white/80'
                 }`}
               >
                 {status}
               </button>
             ))}
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">活动时间</label>
-          <div className="flex flex-col gap-2">
+            <div className="w-px h-6 bg-slate-300 mx-2"></div>
+
+            <span className="text-sm font-bold text-slate-600">时间：</span>
             {timeFilters.map(filter => (
               <button
                 key={filter.value}
                 onClick={() => setSelectedTime(filter.value)}
-                className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedTime === filter.value
-                    ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                    : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
+                    ? 'bg-primary text-white'
+                    : 'bg-white/60 text-slate-600 hover:bg-white/80'
                 }`}
               >
                 {filter.label}
@@ -134,180 +147,154 @@ const Activities: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-auto">
-          {/* Admin publish button in sidebar */}
-          {user?.role === 'admin' && (
-            <button
-              onClick={() => navigate('/publish?type=activity')}
-              className="w-full rounded-xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-transform active:scale-95 hover:bg-blue-600"
-            >
-              发布新活动
-            </button>
-          )}
+        {/* Results Count */}
+        <div className="mb-6 text-sm font-bold text-slate-500">
+          {isLoading ? '加载中...' : `找到 ${activities.length} 个活动`}
         </div>
-      </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto px-6 py-8 md:px-12 lg:px-16 scroll-smooth">
-        <div className="mx-auto max-w-6xl">
-          {/* Header */}
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold text-slate-900 tracking-tight drop-shadow-sm">活动公告</h1>
-              <p className="mt-2 text-slate-600 font-medium">发现校园里的精彩时刻，丰富你的大学生活。</p>
-            </div>
-            {/* Mobile filter button */}
-            <button className="lg:hidden flex items-center gap-2 rounded-xl bg-white/40 px-5 py-2.5 text-sm font-semibold text-slate-800 transition-all hover:bg-white/70 hover:shadow-md border border-white/50 backdrop-blur-sm">
-              <span className="material-symbols-outlined text-slate-600" style={{ fontSize: '20px' }}>filter_list</span>
-              筛选
-            </button>
+        {/* Activities List */}
+        {isLoading ? (
+          <div className="glass-card rounded-2xl p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-lg font-medium text-slate-500">加载中...</p>
           </div>
-
-          {isLoading ? (
-            <div className="glass-card rounded-2xl p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
-              <p className="mt-4 text-lg font-medium text-slate-500">加载中...</p>
-            </div>
-          ) : activities.length === 0 ? (
-            <div className="glass-card rounded-2xl p-12 text-center">
-              <span className="material-symbols-outlined text-6xl text-slate-300" style={{ fontSize: '64px' }}>event_busy</span>
-              <p className="mt-4 text-lg font-medium text-slate-500">暂无符合条件的活动</p>
-            </div>
-          ) : (
-            <>
-              {/* Featured Section (First Activity) */}
-              {activities.length > 0 && (
-                <Link to={`/activities/${activities[0].id}`} className="glass-card rounded-[2rem] overflow-hidden group cursor-pointer border-0 shadow-2xl relative block mb-10">
-                  <div className="flex flex-col lg:flex-row min-h-[400px]">
-                    <div className="w-full lg:w-1/2 relative overflow-hidden">
-                      <img
-                        src={activities[0].image}
-                        alt={activities[0].title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent lg:hidden"></div>
-                    </div>
-                    <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
-                      <div className="flex items-center gap-2 mb-4">
-                        <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest">{activities[0].category}</span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
-                          activities[0].status === '进行中' ? 'bg-blue-100 text-blue-700' :
-                          activities[0].status === '已结束' ? 'bg-slate-100 text-slate-700' :
-                          'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          {activities[0].status}
-                        </span>
-                      </div>
-                      <h2 className="text-3xl font-extrabold text-slate-900 mb-4 leading-tight group-hover:text-primary transition-colors">
-                        {activities[0].title}
-                      </h2>
-                      <p className="text-slate-600 mb-8 leading-relaxed line-clamp-3">
-                        {activities[0].description}
-                      </p>
-                      <div className="flex flex-col gap-3 mb-8">
-                        <div className="flex items-center gap-3 text-slate-500 font-medium">
-                          <span className="material-symbols-outlined text-primary">calendar_today</span>
-                          <span>{activities[0].date}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-slate-500 font-medium">
-                          <span className="material-symbols-outlined text-primary">location_on</span>
-                          <span>{activities[0].location}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-slate-500 font-medium">
-                          <span className="material-symbols-outlined text-primary">apartment</span>
-                          <span>{activities[0].organizer}</span>
-                        </div>
-                        {/* Notes/注意事项 */}
-                        {activities[0].notes && (
-                          <div className="flex items-start gap-3 text-amber-600 font-medium bg-amber-50 rounded-lg p-3">
-                            <span className="material-symbols-outlined text-amber-600 text-sm mt-0.5">info</span>
-                            <div>
-                              <span className="text-xs font-bold">注意事项：</span>
-                              <span className="text-sm ml-1">{activities[0].notes}</span>
-                            </div>
-                          </div>
-                        )}
-                        {/* Registration indicator */}
-                        {activities[0].registration_start && activities[0].registration_end && (
-                          <div className="flex items-center gap-3 text-emerald-600 font-medium">
-                            <span className="material-symbols-outlined text-emerald-600">how_to_reg</span>
-                            <span className="text-sm">需报名</span>
-                          </div>
-                        )}
-                      </div>
-                      <button className={`w-fit px-8 py-3.5 rounded-2xl font-bold shadow-lg hover:-translate-y-1 transition-all active:scale-95 ${
-                        activities[0].registration_start && activities[0].registration_end
-                          ? 'bg-primary text-white shadow-primary/30 hover:shadow-primary/50'
-                          : 'bg-slate-100 text-slate-700 shadow-slate-200 hover:bg-slate-200'
-                      }`}>
-                        {activities[0].registration_start && activities[0].registration_end ? '立即报名' : '查看详情'}
-                      </button>
-                    </div>
+        ) : activities.length === 0 ? (
+          <div className="glass-card rounded-2xl p-12 text-center">
+            <span className="material-symbols-outlined text-6xl text-slate-300" style={{ fontSize: '64px' }}>event_busy</span>
+            <p className="mt-4 text-lg font-medium text-slate-500">暂无符合条件的活动</p>
+          </div>
+        ) : (
+          <>
+            {/* Featured Section (First Activity) */}
+            {activities.length > 0 && (
+              <Link to={`/activities/${activities[0].id}`} className="glass-card rounded-[2rem] overflow-hidden group cursor-pointer border-0 shadow-2xl relative block mb-10">
+              <div className="flex flex-col lg:flex-row min-h-[400px]">
+                <div className="w-full lg:w-1/2 relative overflow-hidden">
+                  <img
+                    src={activities[0].image}
+                    alt={activities[0].title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent lg:hidden"></div>
+                </div>
+                <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest">{activities[0].category}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
+                      activities[0].status === '进行中' ? 'bg-blue-100 text-blue-700' :
+                      activities[0].status === '已结束' ? 'bg-slate-100 text-slate-700' :
+                      'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {activities[0].status}
+                    </span>
                   </div>
-                </Link>
-              )}
-
-              {/* Grid Section */}
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
-                {activities.slice(1).map((activity) => (
-                  <Link key={activity.id} to={`/activities/${activity.id}`} className="glass-card rounded-[2rem] overflow-hidden group hover:bg-white/90 transition-all duration-500 cursor-pointer flex flex-col block">
-                    <div className="relative aspect-video overflow-hidden">
-                      <img
-                        src={activity.image}
-                        alt={activity.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      <div className="absolute top-4 left-4 flex gap-2">
-                        <span className="px-3 py-1 rounded-lg bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-bold uppercase tracking-wider shadow-sm">
-                          {activity.category}
-                        </span>
-                        <span className={`px-3 py-1 rounded-lg backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider shadow-sm ${
-                          activity.status === '进行中' ? 'bg-blue-500/90' : activity.status === '已结束' ? 'bg-slate-500/90' : 'bg-emerald-500/90'
-                        }`}>
-                          {activity.status}
-                        </span>
-                      </div>
+                  <h2 className="text-3xl font-extrabold text-slate-900 mb-4 leading-tight group-hover:text-primary transition-colors">
+                    {activities[0].title}
+                  </h2>
+                  <p className="text-slate-600 mb-8 leading-relaxed line-clamp-3">
+                    {activities[0].description}
+                  </p>
+                  <div className="flex flex-col gap-3 mb-8">
+                    <div className="flex items-center gap-3 text-slate-500 font-medium">
+                      <span className="material-symbols-outlined text-primary">calendar_today</span>
+                      <span>{activities[0].date}</span>
                     </div>
-                    <div className="p-6 flex flex-col flex-grow">
-                      <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-primary transition-colors leading-snug">
-                        {activity.title}
-                      </h3>
-                      <div className="flex flex-col gap-2 mb-4 text-sm font-medium text-slate-500">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-base">schedule</span>
-                          {activity.date}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-base text-primary/70">apartment</span>
-                          {activity.organizer}
-                        </div>
-                        {activity.notes && (
-                          <div className="flex items-center gap-1.5 text-amber-600">
-                            <span className="material-symbols-outlined text-sm">info</span>
-                            <span className="text-xs">有注意事项</span>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-slate-600 text-sm line-clamp-2 mb-6">
-                        {activity.description}
-                      </p>
-                      <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100">
-                        <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-                          <span className="material-symbols-outlined text-sm">location_on</span>
-                          {activity.location}
-                        </div>
-                        <button className="text-primary text-sm font-bold flex items-center gap-1 group/btn">
-                          详情 <span className="material-symbols-outlined text-base group-hover/btn:translate-x-1 transition-transform">chevron_right</span>
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-3 text-slate-500 font-medium">
+                      <span className="material-symbols-outlined text-primary">location_on</span>
+                      <span>{activities[0].location}</span>
                     </div>
-                  </Link>
-                ))}
-              </section>
-            </>
+                    <div className="flex items-center gap-3 text-slate-500 font-medium">
+                      <span className="material-symbols-outlined text-primary">apartment</span>
+                      <span>{activities[0].organizer}</span>
+                    </div>
+                    {activities[0].notes && (
+                      <div className="flex items-start gap-3 text-amber-600 font-medium bg-amber-50 rounded-lg p-3">
+                        <span className="material-symbols-outlined text-amber-600 text-sm mt-0.5">info</span>
+                        <div>
+                          <span className="text-xs font-bold">注意事项：</span>
+                          <span className="text-sm ml-1">{activities[0].notes}</span>
+                        </div>
+                      </div>
+                    )}
+                    {activities[0].registration_start && activities[0].registration_end && (
+                      <div className="flex items-center gap-3 text-emerald-600 font-medium">
+                        <span className="material-symbols-outlined text-emerald-600">how_to_reg</span>
+                        <span className="text-sm">需报名</span>
+                      </div>
+                    )}
+                  </div>
+                  <button className={`w-fit px-8 py-3.5 rounded-2xl font-bold shadow-lg hover:-translate-y-1 transition-all active:scale-95 ${
+                    activities[0].registration_start && activities[0].registration_end
+                      ? 'bg-primary text-white shadow-primary/30 hover:shadow-primary/50'
+                      : 'bg-slate-100 text-slate-700 shadow-slate-200 hover:bg-slate-200'
+                  }`}>
+                    {activities[0].registration_start && activities[0].registration_end ? '立即报名' : '查看详情'}
+                  </button>
+                </div>
+              </div>
+            </Link>
           )}
-        </div>
-      </main>
+
+          {/* Grid Section */}
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
+            {activities.slice(1).map((activity) => (
+              <Link key={activity.id} to={`/activities/${activity.id}`} className="glass-card rounded-[2rem] overflow-hidden group hover:bg-white/90 transition-all duration-500 cursor-pointer flex flex-col block">
+                <div className="relative aspect-video overflow-hidden">
+                  <img
+                    src={activity.image}
+                    alt={activity.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute top-4 left-4 flex gap-2">
+                    <span className="px-3 py-1 rounded-lg bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                      {activity.category}
+                    </span>
+                    <span className={`px-3 py-1 rounded-lg backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider shadow-sm ${
+                      activity.status === '进行中' ? 'bg-blue-500/90' : activity.status === '已结束' ? 'bg-slate-500/90' : 'bg-emerald-500/90'
+                    }`}>
+                      {activity.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-6 flex flex-col flex-grow">
+                  <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-primary transition-colors leading-snug">
+                    {activity.title}
+                  </h3>
+                  <div className="flex flex-col gap-2 mb-4 text-sm font-medium text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base">schedule</span>
+                      {activity.date}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-primary/70">apartment</span>
+                      {activity.organizer}
+                    </div>
+                    {activity.notes && (
+                      <div className="flex items-center gap-1.5 text-amber-600">
+                        <span className="material-symbols-outlined text-sm">info</span>
+                        <span className="text-xs">有注意事项</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-slate-600 text-sm line-clamp-2 mb-6">
+                    {activity.description}
+                  </p>
+                  <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                      <span className="material-symbols-outlined text-sm">location_on</span>
+                      {activity.location}
+                    </div>
+                    <button className="text-primary text-sm font-bold flex items-center gap-1 group/btn">
+                      详情 <span className="material-symbols-outlined text-base group-hover/btn:translate-x-1 transition-transform">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </section>
+        </>
+        )}
+      </div>
     </div>
   );
 };

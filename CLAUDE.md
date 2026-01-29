@@ -672,3 +672,48 @@ const handleRegistrationConfirm = async () => {
   setMyRegistrations(registrations);
 };
 ```
+1.29手动日志新功能
+  1. 活动批量删除功能 ✅
+
+  后端 (backend/app/api/activities.py):
+  - 添加 POST /api/activities/batch-delete 端点
+
+  前端 (fronted/services/activities.service.ts):
+  - 添加 batchDelete(ids) 方法
+
+  前端 UI (fronted/pages/AdminDashboard.tsx):
+  - 添加复选框选择活动
+  - 添加批量操作按钮（选中活动时显示）
+  - 添加批量确认对话框
+
+  2. 失物招领审核功能 ✅
+
+  后端模型 (backend/app/models/lost_item.py):
+  - 添加 review_status 字段
+
+  后端API (backend/app/api/lost_items.py):
+  - 添加 POST /api/lost-items/{id}/review?approve=true/false 端点
+  - 更新所有响应包含 review_status
+
+  前端 (fronted/services/lostItems.service.ts):
+  - 添加 review(id, approve) 方法
+
+  前端 UI (fronted/pages/AdminDashboard.tsx):
+  - 显示审核状态徽章（待审核/已通过/已拒绝）
+  - 待审核项目显示审核/拒绝按钮
+
+  功能说明
+
+  活动批量删除:
+  1. 管理员登录 → 管理后台 → 活动公告
+  2. 勾选要删除的活动
+  3. 点击"批量删除"按钮
+  4. 确认后批量删除
+
+  失物招领审核:
+  1. 用户发布失物信息后默认状态为"待审核"
+  2. 管理员在管理后台可看到审核状态
+  3. 点击✓按钮通过审核，点击✗按钮拒绝审核
+  4. 审核通过后信息正常显示，未审核的信息可隐藏（可扩展）
+
+  注意: 由于修改了数据库模型，需要重新运行 python init_db.py 来添加新字段，或者手动迁移数据库。

@@ -39,6 +39,7 @@ const AdminDashboard: React.FC = () => {
   const [registrations, setRegistrations] = useState<ActivityRegistration[]>([]);
   const [registrationsTotal, setRegistrationsTotal] = useState(0);
   const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // User import states
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -52,6 +53,15 @@ const AdminDashboard: React.FC = () => {
   // User management states
   const [userFilter, setUserFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+
+  // Activity management states
+  const [selectedActivities, setSelectedActivities] = useState<number[]>([]);
+
+  // Notification management states
+  const [selectedNotifications, setSelectedNotifications] = useState<number[]>([]);
+
+  // Lost item management states
+  const [selectedLostItems, setSelectedLostItems] = useState<number[]>([]);
 
   // Filter states
   const [notifFilter, setNotifFilter] = useState<'all' | 'important'>('all');
@@ -97,6 +107,24 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleBatchDeleteNotifications = async () => {
+    if (selectedNotifications.length === 0) {
+      showToast('请先选择通知', 'warning');
+      return;
+    }
+
+    if (!confirm(`确定要删除选中的 ${selectedNotifications.length} 条通知吗？`)) return;
+
+    try {
+      const result = await notificationsService.batchDelete(selectedNotifications);
+      setNotifications(notifications.filter(n => !selectedNotifications.includes(n.id)));
+      setSelectedNotifications([]);
+      showToast(`已删除 ${result.deleted} 条通知`, 'success');
+    } catch (error: any) {
+      showToast(error.message || '删除失败', 'error');
+    }
+  };
+
   const handleDeleteActivity = async (id: number) => {
     if (!confirm('确定要删除这个活动吗？')) return;
     try {
@@ -108,6 +136,24 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleBatchDeleteActivities = async () => {
+    if (selectedActivities.length === 0) {
+      showToast('请先选择活动', 'warning');
+      return;
+    }
+
+    if (!confirm(`确定要删除选中的 ${selectedActivities.length} 个活动吗？`)) return;
+
+    try {
+      const result = await activitiesService.batchDelete(selectedActivities);
+      setActivities(activities.filter(a => !selectedActivities.includes(a.id)));
+      setSelectedActivities([]);
+      showToast(`已删除 ${result.deleted} 个活动`, 'success');
+    } catch (error: any) {
+      showToast(error.message || '删除失败', 'error');
+    }
+  };
+
   const handleDeleteLostItem = async (id: number) => {
     if (!confirm('确定要删除这条失物招领吗？')) return;
     try {
@@ -116,6 +162,34 @@ const AdminDashboard: React.FC = () => {
       showToast('删除成功', 'success');
     } catch (error) {
       showToast('删除失败', 'error');
+    }
+  };
+
+  const handleBatchDeleteLostItems = async () => {
+    if (selectedLostItems.length === 0) {
+      showToast('请先选择失物招领', 'warning');
+      return;
+    }
+
+    if (!confirm(`确定要删除选中的 ${selectedLostItems.length} 条失物招领吗？`)) return;
+
+    try {
+      const result = await lostItemsService.batchDelete(selectedLostItems);
+      setLostItems(lostItems.filter(i => !selectedLostItems.includes(i.id)));
+      setSelectedLostItems([]);
+      showToast(`已删除 ${result.deleted} 条失物招领`, 'success');
+    } catch (error: any) {
+      showToast(error.message || '删除失败', 'error');
+    }
+  };
+
+  const handleReviewLostItem = async (id: number, approve: boolean) => {
+    try {
+      const updated = await lostItemsService.review(id, approve);
+      setLostItems(lostItems.map(i => i.id === id ? updated : i));
+      showToast(approve ? '已通过审核' : '已拒绝审核', 'success');
+    } catch (error) {
+      showToast('操作失败', 'error');
     }
   };
 
@@ -149,6 +223,20 @@ const AdminDashboard: React.FC = () => {
     setRegistrationsModal({ activityId: null, activityName: '', isOpen: false });
     setRegistrations([]);
     setRegistrationsTotal(0);
+  };
+
+  const handleExportRegistrations = async () => {
+    if (!registrationsModal.activityId || isExporting) return;
+
+    try {
+      setIsExporting(true);
+      await activityRegistrationsService.exportRegistrations(registrationsModal.activityId);
+      showToast('导出成功', 'success');
+    } catch (error: any) {
+      showToast(error.message || '导出失败', 'error');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleSave = async (data: any) => {
@@ -828,29 +916,62 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-4">
             {/* Filter Bar */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-slate-500">筛选：</span>
-                <div className="flex bg-slate-100 rounded-xl p-1">
-                  <button
-                    onClick={() => setNotifFilter('all')}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      notifFilter === 'all'
-                        ? 'bg-white text-primary shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    全部 ({notifications.length})
-                  </button>
-                  <button
-                    onClick={() => setNotifFilter('important')}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      notifFilter === 'important'
-                        ? 'bg-white text-primary shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    重要 ({notifications.filter(n => n.is_important).length})
-                  </button>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-slate-500">筛选：</span>
+                  <div className="flex bg-slate-100 rounded-xl p-1">
+                    <button
+                      onClick={() => setNotifFilter('all')}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        notifFilter === 'all'
+                          ? 'bg-white text-primary shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      全部 ({notifications.length})
+                    </button>
+                    <button
+                      onClick={() => setNotifFilter('important')}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        notifFilter === 'important'
+                          ? 'bg-white text-primary shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      重要 ({notifications.filter(n => n.is_important).length})
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {selectedNotifications.length > 0 && (
+                    <>
+                      <span className="text-sm font-medium text-slate-600">已选 {selectedNotifications.length}</span>
+                      <button
+                        onClick={() => setSelectedNotifications([])}
+                        className="text-sm text-slate-500 hover:text-slate-700"
+                      >
+                        清除
+                      </button>
+                    </>
+                  )}
+                  <input
+                    type="checkbox"
+                    checked={selectedNotifications.length > 0 && selectedNotifications.length === notifications.filter(n => notifFilter === 'all' ? true : n.is_important).length}
+                    onChange={(e) => {
+                      const filtered = notifications.filter(n => notifFilter === 'all' ? true : n.is_important);
+                      setSelectedNotifications(e.target.checked ? filtered.map(n => n.id) : []);
+                    }}
+                    className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                  {selectedNotifications.length > 0 && (
+                    <button
+                      onClick={handleBatchDeleteNotifications}
+                      className="px-4 py-2 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">delete</span>
+                      批量删除
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -869,6 +990,18 @@ const AdminDashboard: React.FC = () => {
                 .map(item => (
                   <div key={item.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between group">
                     <div className="flex items-center gap-5">
+                      <input
+                        type="checkbox"
+                        checked={selectedNotifications.includes(item.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedNotifications([...selectedNotifications, item.id]);
+                          } else {
+                            setSelectedNotifications(selectedNotifications.filter(id => id !== item.id));
+                          }
+                        }}
+                        className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                      />
                       <div className="size-12 rounded-xl bg-blue-50 flex items-center justify-center">
                         <span className="material-symbols-outlined text-blue-600">notification_important</span>
                       </div>
@@ -907,87 +1040,160 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-4">
             {/* Filter Bar */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-500">状态：</span>
-                  <div className="flex bg-slate-100 rounded-xl p-1">
-                    <button
-                      onClick={() => setActivityFilter('all')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activityFilter === 'all'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      全部
-                    </button>
-                    <button
-                      onClick={() => setActivityFilter('upcoming')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activityFilter === 'upcoming'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      进行中
-                    </button>
-                    <button
-                      onClick={() => setActivityFilter('ended')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activityFilter === 'ended'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      已结束
-                    </button>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-slate-500">状态：</span>
+                    <div className="flex bg-slate-100 rounded-xl p-1">
+                      <button
+                        onClick={() => setActivityFilter('all')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          activityFilter === 'all'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        全部
+                      </button>
+                      <button
+                        onClick={() => setActivityFilter('upcoming')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          activityFilter === 'upcoming'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        进行中
+                      </button>
+                      <button
+                        onClick={() => setActivityFilter('ended')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          activityFilter === 'ended'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        已结束
+                      </button>
+                    </div>
+                  </div>
+                  <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-slate-500">时间：</span>
+                    <div className="flex bg-slate-100 rounded-xl p-1">
+                      <button
+                        onClick={() => setActivityTimeFilter('all')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          activityTimeFilter === 'all'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        全部
+                      </button>
+                      <button
+                        onClick={() => setActivityTimeFilter('week')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          activityTimeFilter === 'week'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        本周
+                      </button>
+                      <button
+                        onClick={() => setActivityTimeFilter('month')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          activityTimeFilter === 'month'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        本月
+                      </button>
+                      <button
+                        onClick={() => setActivityTimeFilter('later')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          activityTimeFilter === 'later'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        更远
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-500">时间：</span>
-                  <div className="flex bg-slate-100 rounded-xl p-1">
+                  {selectedActivities.length > 0 && (
+                    <>
+                      <span className="text-sm font-medium text-slate-600">已选 {selectedActivities.length}</span>
+                      <button
+                        onClick={() => setSelectedActivities([])}
+                        className="text-sm text-slate-500 hover:text-slate-700"
+                      >
+                        清除
+                      </button>
+                    </>
+                  )}
+                  <input
+                    type="checkbox"
+                    checked={selectedActivities.length > 0 && selectedActivities.length === activities.filter(item => {
+                      if (activityFilter === 'upcoming') {
+                        if (!['报名中', '进行中'].includes(item.status)) return false;
+                      } else if (activityFilter === 'ended') {
+                        if (item.status !== '已结束') return false;
+                      }
+                      if (activityTimeFilter !== 'all') {
+                        const now = new Date();
+                        const itemDate = new Date(item.date);
+                        const diffTime = itemDate.getTime() - now.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (activityTimeFilter === 'week') {
+                          if (diffDays < 0 || diffDays > 7) return false;
+                        } else if (activityTimeFilter === 'month') {
+                          if (diffDays < 0 || diffDays > 30) return false;
+                        } else if (activityTimeFilter === 'later') {
+                          if (diffDays <= 30) return false;
+                        }
+                      }
+                      return true;
+                    }).length}
+                    onChange={(e) => {
+                      const filtered = activities.filter(item => {
+                        if (activityFilter === 'upcoming') {
+                          if (!['报名中', '进行中'].includes(item.status)) return false;
+                        } else if (activityFilter === 'ended') {
+                          if (item.status !== '已结束') return false;
+                        }
+                        if (activityTimeFilter !== 'all') {
+                          const now = new Date();
+                          const itemDate = new Date(item.date);
+                          const diffTime = itemDate.getTime() - now.getTime();
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                          if (activityTimeFilter === 'week') {
+                            if (diffDays < 0 || diffDays > 7) return false;
+                          } else if (activityTimeFilter === 'month') {
+                            if (diffDays < 0 || diffDays > 30) return false;
+                          } else if (activityTimeFilter === 'later') {
+                            if (diffDays <= 30) return false;
+                          }
+                        }
+                        return true;
+                      });
+                      setSelectedActivities(e.target.checked ? filtered.map(a => a.id) : []);
+                    }}
+                    className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                  {selectedActivities.length > 0 && (
                     <button
-                      onClick={() => setActivityTimeFilter('all')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activityTimeFilter === 'all'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      onClick={handleBatchDeleteActivities}
+                      className="px-4 py-2 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors flex items-center gap-2"
                     >
-                      全部
+                      <span className="material-symbols-outlined">delete</span>
+                      批量删除
                     </button>
-                    <button
-                      onClick={() => setActivityTimeFilter('week')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activityTimeFilter === 'week'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      本周
-                    </button>
-                    <button
-                      onClick={() => setActivityTimeFilter('month')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activityTimeFilter === 'month'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      本月
-                    </button>
-                    <button
-                      onClick={() => setActivityTimeFilter('later')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activityTimeFilter === 'later'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      更远
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1028,6 +1234,18 @@ const AdminDashboard: React.FC = () => {
                 .map(item => (
                 <div key={item.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between group">
                   <div className="flex items-center gap-5">
+                    <input
+                      type="checkbox"
+                      checked={selectedActivities.includes(item.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedActivities([...selectedActivities, item.id]);
+                        } else {
+                          setSelectedActivities(selectedActivities.filter(id => id !== item.id));
+                        }
+                      }}
+                      className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                    />
                     <div className="size-16 rounded-xl overflow-hidden">
                       <img src={item.image} className="w-full h-full object-cover" alt="" />
                     </div>
@@ -1073,149 +1291,222 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-4">
             {/* Filter Bar */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-              <div className="space-y-3">
-                {/* Type Filter */}
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-500 min-w-fit">类型：</span>
-                  <div className="flex bg-slate-100 rounded-xl p-1">
-                    <button
-                      onClick={() => setLostItemTypeFilter('all')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        lostItemTypeFilter === 'all'
-                          ? 'bg-white text-primary shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      全部
-                    </button>
-                    <button
-                      onClick={() => setLostItemTypeFilter('lost')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        lostItemTypeFilter === 'lost'
-                          ? 'bg-white text-red-500 shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      遗失
-                    </button>
-                    <button
-                      onClick={() => setLostItemTypeFilter('found')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        lostItemTypeFilter === 'found'
-                          ? 'bg-white text-emerald-500 shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      招领
-                    </button>
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3 flex-1">
+                  {/* Type Filter */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-slate-500 min-w-fit">类型：</span>
+                    <div className="flex bg-slate-100 rounded-xl p-1">
+                      <button
+                        onClick={() => setLostItemTypeFilter('all')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          lostItemTypeFilter === 'all'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        全部
+                      </button>
+                      <button
+                        onClick={() => setLostItemTypeFilter('lost')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          lostItemTypeFilter === 'lost'
+                            ? 'bg-white text-red-500 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        遗失
+                      </button>
+                      <button
+                        onClick={() => setLostItemTypeFilter('found')}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          lostItemTypeFilter === 'found'
+                            ? 'bg-white text-emerald-500 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        招领
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Time & Category Filters */}
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-slate-500 min-w-fit">时间：</span>
+                      <div className="flex bg-slate-100 rounded-xl p-1">
+                        <button
+                          onClick={() => setLostItemTimeFilter('all')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemTimeFilter === 'all'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          全部
+                        </button>
+                        <button
+                          onClick={() => setLostItemTimeFilter('week')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemTimeFilter === 'week'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          本周
+                        </button>
+                        <button
+                          onClick={() => setLostItemTimeFilter('month')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemTimeFilter === 'month'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          本月
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-slate-500 min-w-fit">分类：</span>
+                      <div className="flex bg-slate-100 rounded-xl p-1">
+                        <button
+                          onClick={() => setLostItemCategoryFilter('all')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemCategoryFilter === 'all'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          全部
+                        </button>
+                        <button
+                          onClick={() => setLostItemCategoryFilter('电子产品')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemCategoryFilter === '电子产品'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          电子产品
+                        </button>
+                        <button
+                          onClick={() => setLostItemCategoryFilter('证件卡片')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemCategoryFilter === '证件卡片'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          证件卡片
+                        </button>
+                        <button
+                          onClick={() => setLostItemCategoryFilter('学习用品')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemCategoryFilter === '学习用品'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          学习用品
+                        </button>
+                        <button
+                          onClick={() => setLostItemCategoryFilter('生活用品')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemCategoryFilter === '生活用品'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          生活用品
+                        </button>
+                        <button
+                          onClick={() => setLostItemCategoryFilter('其他')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            lostItemCategoryFilter === '其他'
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          其他
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                {/* Time & Category Filters */}
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-slate-500 min-w-fit">时间：</span>
-                    <div className="flex bg-slate-100 rounded-xl p-1">
+                <div className="flex items-center gap-3 pt-1">
+                  {selectedLostItems.length > 0 && (
+                    <>
+                      <span className="text-sm font-medium text-slate-600">已选 {selectedLostItems.length}</span>
                       <button
-                        onClick={() => setLostItemTimeFilter('all')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemTimeFilter === 'all'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
+                        onClick={() => setSelectedLostItems([])}
+                        className="text-sm text-slate-500 hover:text-slate-700"
                       >
-                        全部
+                        清除
                       </button>
-                      <button
-                        onClick={() => setLostItemTimeFilter('week')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemTimeFilter === 'week'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        本周
-                      </button>
-                      <button
-                        onClick={() => setLostItemTimeFilter('month')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemTimeFilter === 'month'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        本月
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-slate-500 min-w-fit">分类：</span>
-                    <div className="flex bg-slate-100 rounded-xl p-1">
-                      <button
-                        onClick={() => setLostItemCategoryFilter('all')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemCategoryFilter === 'all'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        全部
-                      </button>
-                      <button
-                        onClick={() => setLostItemCategoryFilter('电子产品')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemCategoryFilter === '电子产品'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        电子产品
-                      </button>
-                      <button
-                        onClick={() => setLostItemCategoryFilter('证件卡片')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemCategoryFilter === '证件卡片'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        证件卡片
-                      </button>
-                      <button
-                        onClick={() => setLostItemCategoryFilter('学习用品')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemCategoryFilter === '学习用品'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        学习用品
-                      </button>
-                      <button
-                        onClick={() => setLostItemCategoryFilter('生活用品')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemCategoryFilter === '生活用品'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        生活用品
-                      </button>
-                      <button
-                        onClick={() => setLostItemCategoryFilter('其他')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          lostItemCategoryFilter === '其他'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        其他
-                      </button>
-                    </div>
-                  </div>
+                    </>
+                  )}
+                  <input
+                    type="checkbox"
+                    checked={selectedLostItems.length > 0 && selectedLostItems.length === lostItems.filter(item => {
+                      if (lostItemTypeFilter !== 'all') {
+                        if (lostItemTypeFilter === 'lost' && item.type !== 'lost') return false;
+                        if (lostItemTypeFilter === 'found' && item.type !== 'found') return false;
+                      }
+                      if (lostItemCategoryFilter !== 'all') {
+                        if (item.category !== lostItemCategoryFilter) return false;
+                      }
+                      if (lostItemTimeFilter !== 'all') {
+                        const now = new Date();
+                        const createdDate = new Date(item.created_at);
+                        const diffTime = now.getTime() - createdDate.getTime();
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        if (lostItemTimeFilter === 'week') {
+                          if (diffDays > 7) return false;
+                        } else if (lostItemTimeFilter === 'month') {
+                          if (diffDays > 30) return false;
+                        }
+                      }
+                      return true;
+                    }).length}
+                    onChange={(e) => {
+                      const filtered = lostItems.filter(item => {
+                        if (lostItemTypeFilter !== 'all') {
+                          if (lostItemTypeFilter === 'lost' && item.type !== 'lost') return false;
+                          if (lostItemTypeFilter === 'found' && item.type !== 'found') return false;
+                        }
+                        if (lostItemCategoryFilter !== 'all') {
+                          if (item.category !== lostItemCategoryFilter) return false;
+                        }
+                        if (lostItemTimeFilter !== 'all') {
+                          const now = new Date();
+                          const createdDate = new Date(item.created_at);
+                          const diffTime = now.getTime() - createdDate.getTime();
+                          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                          if (lostItemTimeFilter === 'week') {
+                            if (diffDays > 7) return false;
+                          } else if (lostItemTimeFilter === 'month') {
+                            if (diffDays > 30) return false;
+                          }
+                        }
+                        return true;
+                      });
+                      setSelectedLostItems(e.target.checked ? filtered.map(i => i.id) : []);
+                    }}
+                    className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                  {selectedLostItems.length > 0 && (
+                    <button
+                      onClick={handleBatchDeleteLostItems}
+                      className="px-4 py-2 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">delete</span>
+                      批量删除
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1258,6 +1549,18 @@ const AdminDashboard: React.FC = () => {
                 .map(item => (
                 <div key={item.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center justify-between group">
                   <div className="flex items-center gap-5">
+                    <input
+                      type="checkbox"
+                      checked={selectedLostItems.includes(item.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedLostItems([...selectedLostItems, item.id]);
+                        } else {
+                          setSelectedLostItems(selectedLostItems.filter(id => id !== item.id));
+                        }
+                      }}
+                      className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                    />
                     {item.images?.[0] ? (
                       <div className="size-16 rounded-xl overflow-hidden">
                         <img src={item.images[0]} className="w-full h-full object-cover" alt="" />
@@ -1268,7 +1571,19 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     )}
                     <div>
-                      <h4 className="font-bold text-slate-900">{item.title}</h4>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-bold text-slate-900">{item.title}</h4>
+                        {/* Review Status Badge */}
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                          item.review_status === 'pending'
+                            ? 'bg-amber-50 text-amber-600'
+                            : item.review_status === 'approved'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'bg-red-50 text-red-600'
+                        }`}>
+                          {item.review_status === 'pending' ? '待审核' : item.review_status === 'approved' ? '已通过' : '已拒绝'}
+                        </span>
+                      </div>
                       <p className="text-xs text-slate-500 font-medium">{item.location} • 发布于 {new Date(item.created_at).toLocaleDateString()}</p>
                       <div className="flex gap-2 mt-2">
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${item.type === 'lost' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
@@ -1279,6 +1594,25 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    {/* Review buttons for pending items */}
+                    {item.review_status === 'pending' && (
+                      <>
+                        <button
+                          onClick={() => handleReviewLostItem(item.id, true)}
+                          className="px-3 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors text-sm font-bold"
+                          title="通过审核"
+                        >
+                          <span className="material-symbols-outlined text-lg">check</span>
+                        </button>
+                        <button
+                          onClick={() => handleReviewLostItem(item.id, false)}
+                          className="px-3 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 hover:bg-red-100 transition-colors text-sm font-bold"
+                          title="拒绝审核"
+                        >
+                          <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => openEditModal('lost-item', item)}
                       className="size-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary/30 transition-colors"
@@ -1777,10 +2111,6 @@ const AdminDashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-slate-500">共 {registrationsTotal} 人报名</p>
-                  </div>
-
                   {/* Registrations Table */}
                   <div className="overflow-x-auto rounded-xl border border-slate-200">
                     <table className="w-full">
@@ -1825,13 +2155,35 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-              <button
-                onClick={closeRegistrationsModal}
-                className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors"
-              >
-                关闭
-              </button>
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+              <div className="text-sm text-slate-500">
+                共 {registrationsTotal} 人报名
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExportRegistrations}
+                  disabled={isExporting || registrations.length === 0}
+                  className="px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      导出中...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined">download</span>
+                      导出Excel
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={closeRegistrationsModal}
+                  className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors"
+                >
+                  关闭
+                </button>
+              </div>
             </div>
           </div>
         </div>

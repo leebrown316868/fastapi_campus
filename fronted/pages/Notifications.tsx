@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { notificationsService, Notification as ApiNotification } from '../services/notifications.service';
 import { showToast } from '../components/Toast';
+import DottedBackground from '../components/DottedBackground';
 
 // Transform API notification to match UI expectations
 const transformNotification = (api: ApiNotification) => ({
@@ -13,6 +14,11 @@ const Notifications: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [importantFilter, setImportantFilter] = useState<'all' | 'important'>('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -37,73 +43,68 @@ const Notifications: React.FC = () => {
     return true;
   });
   return (
-    <div className="flex h-full w-full overflow-hidden">
-      {/* Sidebar Filters */}
-      <aside className="hidden lg:flex w-80 flex-col gap-6 border-r border-white/40 bg-white/40 backdrop-blur-lg p-6 overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">通知筛选</h3>
-          <button
-            onClick={() => setImportantFilter('all')}
-            className="text-sm font-medium text-primary hover:text-primary/80"
-          >
-            重置
+    <div className="relative min-h-screen">
+      {/* Dynamic Dotted Background */}
+      <DottedBackground />
+
+      <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Header */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">课程通知</h1>
+            <p className="text-lg text-slate-600 mt-1">查看来自您选修课程的最新教学通知与提醒。</p>
+          </div>
+          <button className="group flex items-center gap-2 rounded-xl bg-white/40 px-5 py-2.5 text-sm font-semibold text-slate-800 transition-all hover:bg-white/70 hover:shadow-md border border-white/50 backdrop-blur-sm">
+            <span className="material-symbols-outlined text-slate-600 group-hover:text-primary transition-colors" style={{ fontSize: '20px' }}>mark_chat_read</span>
+            全部标记为已读
           </button>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">重要程度</label>
-          <div className="flex flex-col gap-2">
+        {/* Filters */}
+        <div className="glass-card rounded-2xl p-4 mb-8 flex flex-col gap-4">
+          {/* Importance Filter */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-slate-600">筛选：</span>
             <button
               onClick={() => setImportantFilter('all')}
-              className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
-                importantFilter === 'all'
-                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                  : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${importantFilter === 'all'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-white/60 text-slate-600 hover:bg-white/80'
+                }`}
             >
               全部通知 ({notifications.length})
             </button>
             <button
               onClick={() => setImportantFilter('important')}
-              className={`text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
-                importantFilter === 'important'
-                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
-                  : 'bg-white/50 text-slate-700 hover:bg-white/80 border border-white/60'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${importantFilter === 'important'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-white/60 text-slate-600 hover:bg-white/80'
+                }`}
             >
               仅看重要 ({notifications.filter(n => n.isImportant).length})
             </button>
           </div>
         </div>
-      </aside>
 
-      {/* Main List */}
-      <main className="flex-1 overflow-y-auto px-6 py-8 md:px-12 lg:px-16 scroll-smooth">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold text-slate-900 tracking-tight drop-shadow-sm">最近课程更新</h1>
-              <p className="mt-2 text-slate-600 font-medium">查看来自您选修课程的最新教学通知与提醒。</p>
-            </div>
-            <button className="group flex items-center gap-2 rounded-xl bg-white/40 px-5 py-2.5 text-sm font-semibold text-slate-800 transition-all hover:bg-white/70 hover:shadow-md border border-white/50 backdrop-blur-sm">
-              <span className="material-symbols-outlined text-slate-600 group-hover:text-primary transition-colors" style={{ fontSize: '20px' }}>mark_chat_read</span>
-              全部标记为已读
-            </button>
+        {/* Results Count */}
+        <div className="mb-6 text-sm font-bold text-slate-500">
+          {isLoading ? '加载中...' : `找到 ${filteredNotifications.length} 条通知`}
+        </div>
+
+        {/* Notifications List */}
+        {isLoading ? (
+          <div className="glass-card rounded-2xl p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-lg font-medium text-slate-500">加载中...</p>
           </div>
-
-          {isLoading ? (
-            <div className="glass-card rounded-2xl p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
-              <p className="mt-4 text-lg font-medium text-slate-500">加载中...</p>
-            </div>
-          ) : filteredNotifications.length === 0 ? (
-            <div className="glass-card rounded-2xl p-12 text-center">
-              <span className="material-symbols-outlined text-6xl text-slate-300" style={{ fontSize: '64px' }}>notifications_none</span>
-              <p className="mt-4 text-lg font-medium text-slate-500">暂无通知</p>
-            </div>
-          ) : (
-            <div className="grid gap-5 pb-12">
-              {filteredNotifications.map((item) => (
+        ) : filteredNotifications.length === 0 ? (
+          <div className="glass-card rounded-2xl p-12 text-center">
+            <span className="material-symbols-outlined text-6xl text-slate-300" style={{ fontSize: '64px' }}>notifications_none</span>
+            <p className="mt-4 text-lg font-medium text-slate-500">暂无通知</p>
+          </div>
+        ) : (
+          <div className="grid gap-5 pb-12">
+            {filteredNotifications.map((item) => (
               <div key={item.id} className="glass-card relative flex flex-col gap-4 rounded-2xl p-6 sm:flex-row sm:items-start group/card cursor-pointer hover:bg-white/90">
                 {item.isImportant && (
                   <div className="absolute left-0 top-6 h-12 w-1.5 rounded-r-lg bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
@@ -137,10 +138,9 @@ const Notifications: React.FC = () => {
                 </div>
               </div>
             ))}
-            </div>
-          )}
-        </div>
-      </main>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

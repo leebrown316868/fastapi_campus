@@ -245,3 +245,95 @@ async def cancel_registration(
     await db.commit()
 
     return None
+
+
+@router.get("/{activity_id}/registrations/export", status_code=status.HTTP_200_OK)
+async def export_activity_registrations(
+    activity_id: int,
+    status_filter: Optional[str] = Query(None, description="Filter by status"),
+    current_admin: CurrentAdmin = None,
+    db: DatabaseSession = None,
+):
+    """Export activity registrations as Excel file (admin only)."""
+    # Check if activity exists
+    result = await db.execute(select(Activity).where(Activity.id == activity_id))
+    activity = result.scalar_one_or_none()
+
+    if not activity:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Activity not found"
+        )
+
+    # Build query
+    query = select(ActivityRegistration).where(ActivityRegistration.activity_id == activity_id)
+
+    if status_filter:
+        query = query.where(ActivityRegistration.status == status_filter)
+
+    # Get registrations
+    query = query.order_by(ActivityRegistration.created_at.desc())
+    result = await db.execute(query)
+    registrations = result.scalars().all()
+
+    # Get user info for each registration
+    export_data = []
+    for reg in registrations:
+        user_result = await db.execute(select(User).where(User.id == reg.user_id))
+        user = user_result.scalar_one_or_none()
+
+        status_map = {
+            "confirmed": "已确认",
+            "cancelled": "已取消",
+            "attended": "已参加"
+        }
+
+        export_data.append({
+            "姓名": reg.name,
+            "学号": reg.student_id,
+            "邮箱": user.email if user else "",
+            "联系电话": reg.phone or "",
+            "备注": reg.remark or "",
+            "状态": status_map.get(reg.status, reg.status),
+            "报名时间": reg.created_at.strftime("%Y-%m-%d %H:%M:%S") if reg.created_at else "",
+            "取消时间": reg.cancelled_at.strftime("%Y-%m-%d %H:%M:%S") if reg.cancelled_at else "",
+        })
+
+    # Create Excel file using pandas
+    import pandas as pd
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+
+    df = pd.DataFrame(export_data)
+
+    # Create Excel file with Chinese font support
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='报名名单')
+        # Auto-adjust column widths
+        worksheet = writer.sheets['报名名单']
+        for idx, col in enumerate(worksheet.columns, 1):
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column].width = adjusted_width
+
+    output.seek(0)
+
+    # Create filename
+    filename = f"报名名单_{activity.title}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.xlsx"
+
+    # Return file response
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename*=utf-8''{filename}"
+        }
+    )

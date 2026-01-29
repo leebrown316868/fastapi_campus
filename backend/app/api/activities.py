@@ -1,8 +1,8 @@
 from typing import List, Optional, Annotated
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete as sql_delete
 
 from app.db.database import get_db
 from app.models.user import User
@@ -166,3 +166,25 @@ async def update_activity(
     await db.refresh(activity)
 
     return ActivityResponse.model_validate(activity)
+
+
+@router.post("/batch-delete", response_model=dict)
+async def batch_delete_activities(
+    activity_ids: List[int] = Body(..., embed=True),
+    current_admin: CurrentAdmin = None,
+    db: DatabaseSession = None,
+):
+    """Delete multiple activities (admin only)."""
+    if not activity_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No activity IDs provided"
+        )
+
+    # Delete activities
+    await db.execute(
+        sql_delete(Activity).where(Activity.id.in_(activity_ids))
+    )
+    await db.commit()
+
+    return {"deleted": len(activity_ids)}

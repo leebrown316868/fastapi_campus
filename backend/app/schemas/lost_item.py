@@ -28,6 +28,7 @@ class LostItemUpdate(BaseModel):
     images: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     status: Optional[str] = None
+    review_status: Optional[str] = None
 
 
 class LostItemResponse(LostItemBase):
@@ -36,6 +37,7 @@ class LostItemResponse(LostItemBase):
     images: List[str]
     tags: List[str]
     status: str
+    review_status: str
     created_at: datetime
 
     # Publisher info

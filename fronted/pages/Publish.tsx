@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notificationsService } from '../services/notifications.service';
@@ -7,6 +7,7 @@ import { lostItemsService } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
 import ImageUpload from '../components/ImageUpload';
 import MultiImageUpload from '../components/MultiImageUpload';
+import DottedBackground from '../components/DottedBackground';
 
 type Category = 'course' | 'activity' | 'lost';
 
@@ -22,6 +23,11 @@ const Publish: React.FC = () => {
   });
   const [isFound, setIsFound] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   // 课程通知表单状态
   const [courseForm, setCourseForm] = useState({
@@ -618,7 +624,11 @@ const Publish: React.FC = () => {
   const isAdmin = user.role === 'admin';
 
   return (
-    <main className="flex-1 px-4 pb-12 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pt-8">
+    <div className="relative min-h-screen">
+      {/* Dynamic Dotted Background */}
+      <DottedBackground />
+
+      <main className={`relative z-10 flex-1 px-4 pb-12 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pt-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
       {/* 面包屑导航 */}
       <div className="flex items-center gap-2 mb-6 text-sm font-medium text-slate-500">
         <span className="hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/')}>首页</span>
@@ -718,7 +728,8 @@ const Publish: React.FC = () => {
           </form>
         </div>
       </section>
-    </main>
+      </main>
+    </div>
   );
 };
 

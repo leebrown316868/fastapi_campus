@@ -16,6 +16,7 @@ export interface LostItem {
   images: string[];
   tags: string[];
   status: string;
+  review_status: 'pending' | 'approved' | 'rejected';
   publisher?: Publisher;
   created_at: string;
 }
@@ -80,6 +81,20 @@ export const lostItemsService = {
     status: string;
   }>): Promise<LostItem> {
     return apiClient.patch<LostItem>(`/api/lost-items/${id}`, data);
+  },
+
+  /**
+   * Review lost item (admin only)
+   */
+  async review(id: number, approve: boolean): Promise<LostItem> {
+    return apiClient.post<LostItem>(`/api/lost-items/${id}/review?approve=${approve}`, {});
+  },
+
+  /**
+   * Batch delete lost items (admin only)
+   */
+  async batchDelete(ids: number[]): Promise<{ deleted: number }> {
+    return apiClient.post<{ deleted: number }>('/api/lost-items/batch-delete', { item_ids: ids });
   },
 
   /**

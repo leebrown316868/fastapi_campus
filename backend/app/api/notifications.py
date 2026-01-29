@@ -1,8 +1,8 @@
 from typing import List, Optional, Annotated
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete as sql_delete
 
 from app.db.database import get_db
 from app.models.user import User
@@ -197,6 +197,28 @@ async def update_notification(
         time=format_time(notification.created_at),
         created_at=notification.created_at,
     )
+
+
+@router.post("/batch-delete", response_model=dict)
+async def batch_delete_notifications(
+    notification_ids: List[int] = Body(..., embed=True),
+    current_admin: CurrentAdmin = None,
+    db: DatabaseSession = None,
+):
+    """Delete multiple notifications (admin only)."""
+    if not notification_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No notification IDs provided"
+        )
+
+    # Delete notifications
+    await db.execute(
+        sql_delete(Notification).where(Notification.id.in_(notification_ids))
+    )
+    await db.commit()
+
+    return {"deleted": len(notification_ids)}
 
 
 def format_time(dt) -> str:

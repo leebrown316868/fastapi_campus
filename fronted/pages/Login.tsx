@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import DottedBackground from '../components/DottedBackground';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ username: '', password: '' });
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,8 +32,12 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="mesh-gradient min-h-screen w-full flex items-center justify-center px-6">
-      <div className="glass-card w-full max-w-[440px] rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
+    <div className="relative min-h-screen w-full flex items-center justify-center px-6">
+      {/* Dynamic Dotted Background */}
+      <DottedBackground />
+
+      <div className={`relative z-10 w-full max-w-[440px] transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+      <div className="glass-card w-full rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
         {/* Design Accents */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-400/10 rounded-full -ml-12 -mb-12 blur-2xl"></div>
@@ -95,6 +105,7 @@ const Login: React.FC = () => {
             )}
           </button>
         </form>
+      </div>
       </div>
     </div>
   );

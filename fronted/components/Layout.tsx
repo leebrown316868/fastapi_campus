@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { NAV_ITEMS } from '../constants';
 import NotificationBell from './NotificationBell';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -13,6 +14,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0, opacity: 0, scaleX: 1 });
   const [scrollY, setScrollY] = useState(0);
   const prevIndexRef = useRef(-1);
+
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Track scroll for background parallax
   useEffect(() => {
@@ -60,6 +65,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Handle search
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+    }
+  };
 
   // Bubbles data
   const bubbles = [
@@ -130,14 +144,27 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
 
           <div className="flex items-center justify-end gap-4 min-w-[200px]">
-            <div className="hidden xl:flex items-center relative">
-              <span className="material-symbols-outlined absolute left-3 text-gray-400 text-xl">search</span>
-              <input
-                className="h-10 pl-10 pr-4 bg-white/50 border border-white/60 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48 focus:w-64 transition-all duration-300"
-                placeholder="搜索内容..."
-                type="text"
-              />
-            </div>
+            <form onSubmit={handleSearch} className="hidden xl:flex items-center relative">
+              {/* Search glow effect */}
+              <div className={`absolute inset-0 rounded-full bg-gradient-to-r from-emerald-400/20 via-primary/20 to-blue-400/20 blur-xl transition-opacity duration-500 pointer-events-none ${
+                isSearchFocused ? 'opacity-100 scale-105' : 'opacity-0 scale-95'
+              }`}></div>
+
+              <div className={`relative rounded-full transition-all duration-500 ${
+                isSearchFocused ? 'shadow-[0_0_20px_rgba(16,185,129,0.3),0_0_40px_rgba(59,130,246,0.2)]' : ''
+              }`}>
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl pointer-events-none">search</span>
+                <input
+                  className="h-10 pl-10 pr-4 bg-white/50 border border-white/60 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48 focus:w-64 transition-all duration-300"
+                  placeholder="搜索内容..."
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                />
+              </div>
+            </form>
             <div className="flex gap-3 items-center">
               {/* Notification Bell */}
               <NotificationBell />

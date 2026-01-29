@@ -1,7 +1,7 @@
 from typing import List, Optional, Annotated
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, delete as sql_delete
 
 from app.db.database import get_db
 from app.models.user import User
@@ -63,6 +63,7 @@ async def get_lost_items(
             "images": item.images or [],
             "tags": item.tags or [],
             "status": item.status,
+            "review_status": item.review_status,
             "publisher": publisher.model_dump() if publisher else None,
             "created_at": item.created_at,
         }
@@ -110,6 +111,7 @@ async def get_lost_item(
         images=item.images or [],
         tags=item.tags or [],
         status=item.status,
+        review_status=item.review_status,
         publisher=publisher.model_dump() if publisher else None,
         created_at=item.created_at,
     )
@@ -148,6 +150,7 @@ async def create_lost_item(
         images=new_item.images or [],
         tags=new_item.tags or [],
         status=new_item.status,
+        review_status=new_item.review_status,
         publisher=publisher.model_dump(),
         created_at=new_item.created_at,
     )
@@ -209,9 +212,85 @@ async def update_lost_item(
         images=item.images or [],
         tags=item.tags or [],
         status=item.status,
+        review_status=item.review_status,
         publisher=publisher.model_dump() if publisher else None,
         created_at=item.created_at,
     )
+
+
+@router.post("/{item_id}/review", response_model=LostItemResponse)
+async def review_lost_item(
+    item_id: int,
+    approve: bool = Query(..., description="True to approve, False to reject"),
+    current_admin: CurrentAdmin = None,
+    db: DatabaseSession = None,
+):
+    """Review a lost item (admin only)."""
+    result = await db.execute(
+        select(LostItem).where(LostItem.id == item_id)
+    )
+    item = result.scalar_one_or_none()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Item not found"
+        )
+
+    # Update review status
+    item.review_status = "approved" if approve else "rejected"
+
+    await db.commit()
+    await db.refresh(item)
+
+    # Get publisher info
+    publisher = None
+    if item.created_by:
+        user_result = await db.execute(select(User).where(User.id == item.created_by))
+        user = user_result.scalar_one_or_none()
+        if user:
+            publisher = PublisherInfo(
+                name=user.name,
+                avatar=user.avatar or ""
+            )
+
+    return LostItemResponse(
+        id=item.id,
+        title=item.title,
+        type=item.type,
+        category=item.category,
+        description=item.description,
+        location=item.location,
+        time=item.time,
+        images=item.images or [],
+        tags=item.tags or [],
+        status=item.status,
+        review_status=item.review_status,
+        publisher=publisher.model_dump() if publisher else None,
+        created_at=item.created_at,
+    )
+
+
+@router.post("/batch-delete", response_model=dict)
+async def batch_delete_lost_items(
+    item_ids: List[int] = Body(..., embed=True),
+    current_admin: CurrentAdmin = None,
+    db: DatabaseSession = None,
+):
+    """Delete multiple lost items (admin only)."""
+    if not item_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No item IDs provided"
+        )
+
+    # Delete items
+    await db.execute(
+        sql_delete(LostItem).where(LostItem.id.in_(item_ids))
+    )
+    await db.commit()
+
+    return {"deleted": len(item_ids)}
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

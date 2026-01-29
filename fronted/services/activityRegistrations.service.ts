@@ -29,6 +29,13 @@ export interface RegistrationListResponse {
 }
 
 const activityRegistrationsService = {
+  // Export registrations to Excel
+  exportRegistrations: async (activityId: number, params?: { status_filter?: string }) => {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = `/api/activities/${activityId}/registrations/export${queryString ? `?${queryString}` : ''}`;
+    await apiClient.download(url, `报名名单_${activityId}.xlsx`);
+  },
+
   // Register for an activity
   create: async (activityId: number, data: RegistrationCreate) => {
     return await apiClient.post<ActivityRegistration>(

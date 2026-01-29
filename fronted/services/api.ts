@@ -128,6 +128,46 @@ class ApiClient {
     await this.request<void>(endpoint, { method: 'DELETE' });
   }
 
+  // Download file
+  async download(endpoint: string, filename: string): Promise<void> {
+    const url = `${this.baseURL}${endpoint}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        if (this.onAuthError) {
+          this.onAuthError();
+        }
+      }
+      const error: ApiError = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || 'Download failed');
+    }
+
+    // Get filename from Content-Disposition header if not provided
+    let downloadFilename = filename;
+    const contentDisposition = response.headers.get('Content-Disposition');
+    if (contentDisposition) {
+      const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+      if (matches != null && matches[1]) {
+        downloadFilename = matches[1].replace(/['"]/g, '');
+      }
+    }
+
+    // Download blob
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = downloadFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  }
+
   // Public requests (no auth required)
   async getPublic<T>(endpoint: string): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;

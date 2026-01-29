@@ -80,6 +80,13 @@ export const activitiesService = {
   },
 
   /**
+   * Batch delete activities (admin only)
+   */
+  async batchDelete(ids: number[]): Promise<{ deleted: number }> {
+    return apiClient.post<{ deleted: number }>('/api/activities/batch-delete', { activity_ids: ids });
+  },
+
+  /**
    * Update activity (admin only)
    */
   async update(id: number, data: {

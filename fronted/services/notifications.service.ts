@@ -63,6 +63,13 @@ export const notificationsService = {
   },
 
   /**
+   * Batch delete notifications (admin only)
+   */
+  async batchDelete(ids: number[]): Promise<{ deleted: number }> {
+    return apiClient.post<{ deleted: number }>('/api/notifications/batch-delete', { notification_ids: ids });
+  },
+
+  /**
    * Update notification (admin only)
    */
   async update(id: number, data: {

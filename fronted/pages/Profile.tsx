@@ -8,6 +8,7 @@ import { usersService } from '../services/users.service';
 import { uploadsService } from '../services/uploads.service';
 import { userNotificationsService } from '../services/userNotifications.service';
 import { showToast } from '../components/Toast';
+import DottedBackground from '../components/DottedBackground';
 
 type TabType = 'posts' | 'notifications' | 'edit-profile' | 'change-password';
 
@@ -25,6 +26,11 @@ const Profile: React.FC = () => {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>(user?.avatar || '');
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   // Handle tab from URL params
   useEffect(() => {
@@ -217,7 +223,11 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className="relative flex h-full w-full overflow-hidden">
+      {/* Dynamic Dotted Background */}
+      <DottedBackground />
+
+      <div className={`relative z-10 flex h-full w-full transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-6 py-8 md:px-12 lg:px-16 scroll-smooth">
         <div className="mx-auto max-w-4xl">
@@ -656,6 +666,7 @@ const Profile: React.FC = () => {
           </section>
         </div>
       </main>
+      </div>
     </div>
   );
 };

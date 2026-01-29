@@ -7,6 +7,7 @@ import { ToastProvider } from './components/Toast';
 
 // Pages
 const Home = lazy(() => import('./pages/Home'));
+const SearchResults = lazy(() => import('./pages/SearchResults'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const LostAndFound = lazy(() => import('./pages/LostAndFound'));
 const ItemDetail = lazy(() => import('./pages/ItemDetail'));
@@ -66,6 +67,7 @@ const App: React.FC = () => {
                 }>
                   <Routes>
                     <Route path="/home" element={<Home />} />
+                    <Route path="/search" element={<SearchResults />} />
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/lost-and-found" element={<LostAndFound />} />
                     <Route path="/lost-and-found/:id" element={<ItemDetail />} />

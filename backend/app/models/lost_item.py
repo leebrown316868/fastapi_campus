@@ -19,6 +19,7 @@ class LostItem(Base):
     images: Mapped[list] = mapped_column(JSON, default=list)  # List of image URLs
     tags: Mapped[list] = mapped_column(JSON, default=list)  # List of tag strings
     status: Mapped[str] = mapped_column(String(20), default="寻找中")  # 寻找中, 已找到
+    review_status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, approved, rejected
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
 
