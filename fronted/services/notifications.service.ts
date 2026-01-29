@@ -9,6 +9,8 @@ export interface Notification {
   avatar?: string;
   location?: string;
   is_important: boolean;
+  attachment?: string;
+  attachment_name?: string;
   time: string;
   created_at: string;
 }
@@ -51,6 +53,8 @@ export const notificationsService = {
     avatar?: string;
     location?: string;
     is_important?: boolean;
+    attachment?: string;
+    attachment_name?: string;
   }): Promise<Notification> {
     return apiClient.post<Notification>('/api/notifications', data);
   },

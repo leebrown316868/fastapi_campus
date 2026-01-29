@@ -10,6 +10,8 @@ class NotificationBase(BaseModel):
     course: str
     location: Optional[str] = None
     is_important: bool = False
+    attachment: Optional[str] = None
+    attachment_name: Optional[str] = None
 
 
 class NotificationCreate(NotificationBase):
@@ -30,6 +32,8 @@ class NotificationResponse(NotificationBase):
     avatar: Optional[str] = None
     time: str  # Formatted time string for display
     created_at: datetime
+    attachment: Optional[str] = None
+    attachment_name: Optional[str] = None
 
     class Config:
         from_attributes = True

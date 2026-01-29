@@ -67,23 +67,19 @@ async def register_for_activity(
         )
 
     # Check if registration period is open
+    # Note: Database stores local time (without timezone), so use local time for comparison
     from datetime import datetime
-    now = datetime.utcnow()
+    now = datetime.now()
 
-    # Debug logging
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"Registration check for activity {activity_id}:")
-    logger.info(f"  now (utcnow): {now.isoformat()}")
-    logger.info(f"  registration_start: {activity.registration_start.isoformat() if activity.registration_start else None}")
-    logger.info(f"  registration_end: {activity.registration_end.isoformat() if activity.registration_end else None}")
-    logger.info(f"  now < reg_start: {now < activity.registration_start if activity.registration_start else 'N/A'}")
-    logger.info(f"  now > reg_end: {now > activity.registration_end if activity.registration_end else 'N/A'}")
-
-    if now < activity.registration_start or now > activity.registration_end:
+    if now < activity.registration_start:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Registration is not open at this time"
+            detail=f"报名未开始。报名开始时间: {activity.registration_start.strftime('%Y-%m-%d %H:%M')}"
+        )
+    if now > activity.registration_end:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"报名已结束。报名结束时间: {activity.registration_end.strftime('%Y-%m-%d %H:%M')}"
         )
 
     # Check if activity is full

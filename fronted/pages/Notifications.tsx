@@ -49,15 +49,11 @@ const Notifications: React.FC = () => {
 
       <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
         {/* Header */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mb-8">
           <div>
             <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">课程通知</h1>
             <p className="text-lg text-slate-600 mt-1">查看来自您选修课程的最新教学通知与提醒。</p>
           </div>
-          <button className="group flex items-center gap-2 rounded-xl bg-white/40 px-5 py-2.5 text-sm font-semibold text-slate-800 transition-all hover:bg-white/70 hover:shadow-md border border-white/50 backdrop-blur-sm">
-            <span className="material-symbols-outlined text-slate-600 group-hover:text-primary transition-colors" style={{ fontSize: '20px' }}>mark_chat_read</span>
-            全部标记为已读
-          </button>
         </div>
 
         {/* Filters */}
@@ -125,6 +121,21 @@ const Notifications: React.FC = () => {
                     <span className="text-xs font-medium text-slate-500 bg-white/50 px-2 py-1 rounded-lg">{item.time}</span>
                   </div>
                   <p className="text-sm leading-relaxed text-slate-600">{item.content}</p>
+
+                  {/* 附件下载 */}
+                  {item.attachment && (
+                    <a
+                      href={`http://localhost:8000${item.attachment}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-xl text-sm font-medium hover:bg-primary/20 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">attach_file</span>
+                      <span>下载附件: {item.attachment_name || '文档'}</span>
+                      <span className="material-symbols-outlined text-sm">download</span>
+                    </a>
+                  )}
+
                   <div className="mt-2 flex flex-wrap items-center gap-4 border-t border-slate-200/50 pt-4 sm:gap-8">
                     <div className="flex items-center gap-2">
                       <div className="h-8 w-8 rounded-full bg-cover bg-center ring-2 ring-white" style={{ backgroundImage: `url(${item.avatar})` }}></div>

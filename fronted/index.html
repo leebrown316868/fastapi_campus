@@ -53,25 +53,6 @@
             .no-scrollbar::-webkit-scrollbar {
                 display: none;
             }
-            
-            /* Dynamic Bubbles */
-            .bubble {
-                position: fixed;
-                border-radius: 50%;
-                filter: blur(60px);
-                z-index: -1;
-                pointer-events: none;
-                transition: transform 0.2s ease-out;
-            }
-            
-            @keyframes float {
-                0%, 100% { transform: translateY(0) scale(1); }
-                50% { transform: translateY(-20px) scale(1.05); }
-            }
-            
-            .animate-float-slow {
-                animation: float 8s ease-in-out infinite;
-            }
         }
     </style>
 <script type="importmap">
@@ -86,7 +67,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="mesh-gradient min-h-screen text-slate-900 overflow-x-hidden">
+<body class="min-h-screen text-slate-900 overflow-x-hidden">
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 </body>

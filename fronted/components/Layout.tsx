@@ -12,19 +12,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0, opacity: 0, scaleX: 1 });
-  const [scrollY, setScrollY] = useState(0);
   const prevIndexRef = useRef(-1);
 
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-
-  // Track scroll for background parallax
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Sliding Nav Indicator Logic
   useEffect(() => {
@@ -75,33 +67,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
-  // Bubbles data
-  const bubbles = [
-    { size: 400, top: '10%', left: '-5%', color: 'bg-primary/10', speed: 0.05 },
-    { size: 300, top: '40%', left: '85%', color: 'bg-emerald-400/10', speed: 0.08 },
-    { size: 500, top: '70%', left: '10%', color: 'bg-blue-300/10', speed: 0.03 },
-    { size: 250, top: '20%', left: '60%', color: 'bg-green-300/10', speed: 0.06 },
-  ];
-
   const isAdminPage = location.pathname.startsWith('/admin');
   const isAdmin = user?.role === 'admin';
 
   return (
     <div className="min-h-screen flex flex-col relative">
-      {/* Dynamic Animated Bubbles */}
-      {bubbles.map((b, i) => (
-        <div
-          key={i}
-          className={`bubble animate-float-slow ${b.color}`}
-          style={{
-            width: `${b.size}px`,
-            height: `${b.size}px`,
-            top: b.top,
-            left: b.left,
-            transform: `translateY(${scrollY * b.speed}px)`,
-          }}
-        />
-      ))}
 
       {/* Header */}
       <nav className="sticky top-0 z-50 w-full glass-panel border-b-0 h-[80px]">

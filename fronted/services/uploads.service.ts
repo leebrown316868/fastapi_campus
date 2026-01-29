@@ -53,6 +53,10 @@ export async function uploadImage(file: File): Promise<UploadResponse> {
     });
 
     if (!response.ok) {
+      // Handle auth errors - trigger reload to let AuthContext handle redirect
+      if (response.status === 401 || response.status === 403) {
+        window.location.href = '/';
+      }
       const error: UploadError = await response.json().catch(() => ({ detail: response.statusText }));
       throw new Error(error.detail || 'Upload failed');
     }

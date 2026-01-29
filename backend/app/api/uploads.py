@@ -21,6 +21,10 @@ router = APIRouter(prefix="/api/upload", tags=["upload"])
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
+# Allowed document file types for notifications
+ALLOWED_DOC_EXTENSIONS = {".pdf", ".ppt", ".pptx", ".doc", ".docx"}
+MAX_DOC_FILE_SIZE = 20 * 1024 * 1024  # 20MB
+
 # Upload directory
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -36,6 +40,19 @@ def validate_image_file(file: UploadFile) -> None:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
+
+def validate_document_file(file: UploadFile) -> None:
+    """Validate that the uploaded file is an allowed document type."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_DOC_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_DOC_EXTENSIONS)}"
         )
 
 
@@ -86,6 +103,49 @@ async def upload_image(
     return {
         "url": f"/uploads/{unique_filename}",
         "filename": unique_filename,
+        "size": len(content)
+    }
+
+
+@router.post("/document")
+async def upload_document(
+    file: UploadFile = File(...),
+    db: DatabaseSession = None,
+) -> dict:
+    """
+    Upload a document file (PDF, PPT, PPTX, DOC, DOCX).
+
+    Returns:
+        dict: Contains the URL and original filename of the uploaded document
+    """
+    # Validate file type
+    validate_document_file(file)
+
+    # Generate unique filename
+    unique_filename = generate_unique_filename(file.filename)
+    file_path = UPLOAD_DIR / unique_filename
+
+    # Read and validate file content
+    content = await file.read()
+
+    if len(content) > MAX_DOC_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is {MAX_DOC_FILE_SIZE // (1024*1024)}MB"
+        )
+
+    # Save file to disk
+    try:
+        with open(file_path, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+
+    # Return the URL path with original filename
+    return {
+        "url": f"/uploads/{unique_filename}",
+        "filename": unique_filename,
+        "original_filename": file.filename,
         "size": len(content)
     }
 

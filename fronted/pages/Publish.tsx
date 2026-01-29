@@ -34,7 +34,13 @@ const Publish: React.FC = () => {
     course: '',
     title: '',
     content: '',
+    location: '',
+    is_important: false,
   });
+
+  // 附件上传状态
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // 活动公告表单状态
   const [activityForm, setActivityForm] = useState({
@@ -123,11 +129,53 @@ const Publish: React.FC = () => {
             showToast('请填写所有必填项', 'error');
             return;
           }
+
+          // Upload attachment if selected
+          let attachmentUrl: string | undefined;
+          let attachmentName: string | undefined;
+
+          if (attachmentFile) {
+            try {
+              setIsUploading(true);
+              const formData = new FormData();
+              formData.append('file', attachmentFile);
+
+              const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upload/document`, {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (!response.ok) {
+                // Handle auth errors - trigger reload to let AuthContext handle redirect
+                if (response.status === 401 || response.status === 403) {
+                  window.location.href = '/';
+                }
+                const error = await response.json();
+                throw new Error(error.detail || '上传失败');
+              }
+
+              const result = await response.json();
+              attachmentUrl = result.url;
+              attachmentName = result.original_filename;
+            } catch (error) {
+              console.error('File upload error:', error);
+              showToast(`文件上传失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+              return;
+            } finally {
+              setIsUploading(false);
+            }
+          }
+
           await notificationsService.create({
             course: courseForm.course,
             title: courseForm.title,
             content: courseForm.content,
+            location: courseForm.location || null,
+            is_important: courseForm.is_important,
             author: user.name,
+            avatar: user.avatar || null,
+            attachment: attachmentUrl,
+            attachment_name: attachmentName,
           });
           showToast('课程通知发布成功！', 'success');
           navigate('/notifications');
@@ -274,13 +322,92 @@ const Publish: React.FC = () => {
               />
             </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-900">地点（可选）</label>
+                <input
+                  className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900 placeholder-slate-400"
+                  placeholder="例如：主楼 304 教室"
+                  type="text"
+                  value={courseForm.location}
+                  onChange={(e) => setCourseForm({ ...courseForm, location: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-900">重要程度</label>
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/50 border border-slate-200 cursor-pointer hover:bg-white/70 transition-all">
+                  <input
+                    type="checkbox"
+                    checked={courseForm.is_important}
+                    onChange={(e) => setCourseForm({ ...courseForm, is_important: e.target.checked })}
+                    className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary/20"
+                  />
+                  <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <span className="material-symbols-outlined text-red-500">priority_high</span>
+                    标记为重要通知
+                  </span>
+                </label>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-900">课程资料/附件</label>
-              <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-xl bg-white/30 hover:bg-white/50 hover:border-primary/50 transition-all cursor-pointer">
-                <span className="material-symbols-outlined text-primary mb-1">attach_file</span>
-                <p className="text-xs font-bold text-slate-600">点击上传 PDF、PPT 或 Word 文档</p>
-                <p className="text-[10px] text-slate-400 mt-1">单个文件不超过 20MB</p>
-              </div>
+              <input
+                type="file"
+                accept=".pdf,.ppt,.pptx,.doc,.docx"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Check file size (20MB limit)
+                    if (file.size > 20 * 1024 * 1024) {
+                      showToast('文件大小超过 20MB', 'error');
+                      return;
+                    }
+                    setAttachmentFile(file);
+                  }
+                }}
+                className="hidden"
+                id="attachment-upload"
+              />
+              <label
+                htmlFor="attachment-upload"
+                className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl transition-all cursor-pointer ${
+                  attachmentFile
+                    ? 'border-primary bg-primary/5 hover:bg-primary/10'
+                    : 'border-slate-300 bg-white/30 hover:bg-white/50 hover:border-primary/50'
+                }`}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-primary border-t-transparent mb-2"></div>
+                    <p className="text-xs font-bold text-slate-600">上传中...</p>
+                  </>
+                ) : attachmentFile ? (
+                  <>
+                    <span className="material-symbols-outlined text-primary mb-1">check_circle</span>
+                    <p className="text-sm font-bold text-slate-900">{attachmentFile.name}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setAttachmentFile(null);
+                      }}
+                      className="mt-2 text-xs text-red-500 hover:text-red-700 font-medium"
+                    >
+                      点击重新选择
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-primary mb-1">attach_file</span>
+                    <p className="text-xs font-bold text-slate-600">点击上传 PDF、PPT 或 Word 文档</p>
+                    <p className="text-[10px] text-slate-400 mt-1">单个文件不超过 20MB</p>
+                  </>
+                )}
+              </label>
             </div>
           </div>
         );
@@ -719,10 +846,10 @@ const Publish: React.FC = () => {
                 }`}
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploading}
               >
-                <span className="material-symbols-outlined text-xl">{isSubmitting ? 'hourglass_empty' : 'send'}</span>
-                {isSubmitting ? '提交中...' : '提交审核并发布'}
+                <span className="material-symbols-outlined text-xl">{isSubmitting || isUploading ? 'hourglass_empty' : 'send'}</span>
+                {isSubmitting || isUploading ? (isUploading ? '上传中...' : '提交中...') : '提交审核并发布'}
               </button>
             </div>
           </form>

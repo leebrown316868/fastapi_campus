@@ -1,13 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MOCK_NEWS } from '../constants';
 import DottedBackground from '../components/DottedBackground';
+import feedService, { FeedItem } from '../services/feed.service';
+
+interface Author {
+  name: string;
+  avatar: string;
+}
+
+interface NewsItem extends FeedItem {
+  author: Author;
+}
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -26,6 +37,37 @@ const Home: React.FC = () => {
     });
 
     return () => observer.disconnect();
+  }, []);
+
+  // Fetch latest news
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        setIsLoading(true);
+        const data = await feedService.getLatest(6);
+
+        // Add default author info for display
+        const itemsWithAuthor: NewsItem[] = data.items.map(item => ({
+          ...item,
+          author: {
+            name: item.type === 'notification' ? '行政处' :
+                   item.type === 'activity' ? '学生会' :
+                   '校园管理',
+            avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRXnNGLxZr6QrOYWk0xHKGd53dZm65uHPDQ79w9qM1Ozqd0t2D8C67f6mnlzYZ2-QksqtVwxH-B1qgLrutvHolhSkqjRMN6j9EBJ-DCmKaXuG5tSDL4JiXweeK2Cprks6Ob0wfcVHsBEEsUhMjaH_XSXk8xJAucpRiyestt4n4HxqDRY1wbsNDBI1r_myh4TYYMGBaLBv2U-T5BGJASlnlQmyMmRJ9khMSVbW-olvL7chMoLia-RaxqQuQXIdq3dE3u_f5G0dSPBw4'
+          }
+        }));
+
+        setNewsItems(itemsWithAuthor);
+      } catch (error) {
+        console.error('Failed to fetch news:', error);
+        // Set empty array on error
+        setNewsItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNews();
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -195,43 +237,62 @@ const Home: React.FC = () => {
               查看全部 <span className="material-symbols-outlined text-base">chevron_right</span>
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {MOCK_NEWS.map((item, index) => (
-              <article
-                key={item.id}
-                className="group relative bg-white/70 backdrop-blur-xl rounded-xl p-5 overflow-hidden transition-all duration-500 hover:bg-white/90 hover:-translate-y-1 hover:shadow-xl border border-white/60"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-3">
-                    <span
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${item.tagColor} group-hover:scale-105 transition-transform`}
-                    >
-                      {item.tag}
-                    </span>
-                    <span className="text-slate-400 text-xs font-medium flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">schedule</span> {item.time}
-                    </span>
-                  </div>
-                  <h3 className="text-slate-900 font-bold text-lg mb-2 leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-slate-600 text-sm mb-4 line-clamp-2 group-hover:text-slate-700 transition-colors">
-                    {item.description}
-                  </p>
-                  <div className="flex items-center gap-2 mt-auto pt-3 border-t border-slate-100/50">
-                    <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden group-hover:scale-110 transition-transform">
-                      <img alt={item.author.name} className="w-full h-full object-cover" src={item.author.avatar} />
-                    </div>
-                    <span className="text-slate-500 text-xs font-medium group-hover:text-slate-700 transition-colors">
-                      发布者：{item.author.name}
-                    </span>
-                  </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white/50 rounded-xl p-5 animate-pulse">
+                  <div className="h-4 bg-slate-200 rounded w-20 mb-3"></div>
+                  <div className="h-6 bg-slate-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-slate-200 rounded w-full mb-1"></div>
+                  <div className="h-4 bg-slate-200 rounded w-2/3"></div>
                 </div>
-              </article>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : newsItems.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <p className="text-lg">暂无最新动态</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {newsItems.map((item, index) => (
+                <Link
+                  key={item.id}
+                  to={item.link_url}
+                  className="group relative bg-white/70 backdrop-blur-xl rounded-xl p-5 overflow-hidden transition-all duration-500 hover:bg-white/90 hover:-translate-y-1 hover:shadow-xl border border-white/60"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="relative">
+                    <div className="flex items-start justify-between mb-3">
+                      <span
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${item.tag_color} group-hover:scale-105 transition-transform`}
+                      >
+                        {item.tag}
+                      </span>
+                      <span className="text-slate-400 text-xs font-medium flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">schedule</span> {item.time}
+                      </span>
+                    </div>
+                    <h3 className="text-slate-900 font-bold text-lg mb-2 leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                      {item.title}
+                    </h3>
+                    <p className="text-slate-600 text-sm mb-4 line-clamp-2 group-hover:text-slate-700 transition-colors">
+                      {item.description}
+                    </p>
+                    <div className="flex items-center gap-2 mt-auto pt-3 border-t border-slate-100/50">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden group-hover:scale-110 transition-transform">
+                        <img alt={item.author.name} className="w-full h-full object-cover" src={item.author.avatar} />
+                      </div>
+                      <span className="text-slate-500 text-xs font-medium group-hover:text-slate-700 transition-colors">
+                        发布者：{item.author.name}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 

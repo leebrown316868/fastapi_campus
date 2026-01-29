@@ -51,7 +51,8 @@ const ActivityDetail: React.FC = () => {
   }, [user]);
 
   // Check if user has registered for this activity
-  const hasRegistered = myRegistrations.some(r => r.activity_id === parseInt(id || '0') && r.status === 'confirmed');
+  const activityIdNum = parseInt(id || '0');
+  const hasRegistered = myRegistrations.some(r => r.activity_id === activityIdNum && r.status === 'confirmed');
 
   // Handle registration button click
   const handleRegisterClick = () => {
@@ -97,6 +98,29 @@ const ActivityDetail: React.FC = () => {
     }
   };
 
+  // Handle cancel registration
+  const handleCancelRegistration = async () => {
+    if (!user) return;
+
+    const registration = myRegistrations.find(r => r.activity_id === activityIdNum && r.status === 'confirmed');
+    if (!registration) return;
+
+    try {
+      setIsRegistering(true);
+      await activityRegistrationsService.cancel(registration.id);
+      showToast('已取消报名', 'success');
+
+      // Refresh registrations
+      const registrations = await activityRegistrationsService.getMyRegistrations();
+      setMyRegistrations(registrations);
+    } catch (error: any) {
+      console.error('Cancel registration error:', error);
+      showToast(error.response?.data?.detail || '取消报名失败', 'error');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="w-full max-w-[1000px] mx-auto px-6 py-10">
@@ -128,6 +152,25 @@ const ActivityDetail: React.FC = () => {
 
   const hasRegistration = activity.registration_start && activity.registration_end;
 
+  // Check registration status
+  const now = new Date();
+  const regStart = new Date(activity.registration_start);
+  const regEnd = new Date(activity.registration_end);
+
+  let registrationStatus = 'open'; // 'open', 'not_started', 'ended', 'no_registration'
+  let registrationStatusText = '';
+
+  if (!hasRegistration) {
+    registrationStatus = 'no_registration';
+  } else if (now < regStart) {
+    registrationStatus = 'not_started';
+    const formatOptions = { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    registrationStatusText = '报名未开始（' + regStart.toLocaleDateString('zh-CN', formatOptions) + ' 开始）';
+  } else if (now > regEnd) {
+    registrationStatus = 'ended';
+    registrationStatusText = '报名已结束';
+  }
+
   return (
     <div className="w-full max-w-[1000px] mx-auto px-6 py-10">
       {/* Navigation & Back */}
@@ -147,7 +190,13 @@ const ActivityDetail: React.FC = () => {
 
       <div className="glass-card rounded-[2.5rem] overflow-hidden border-0 shadow-2xl">
         <div className="aspect-[21/9] w-full relative overflow-hidden">
-          <img src={activity.image} alt={activity.title} className="w-full h-full object-cover" />
+          {activity.image ? (
+            <img src={activity.image} alt={activity.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-indigo-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-6xl text-primary/40">event</span>
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent"></div>
           <div className="absolute bottom-8 left-8 right-8">
             <div className="flex items-center gap-3 mb-3">
@@ -263,15 +312,27 @@ const ActivityDetail: React.FC = () => {
 
               <div className="space-y-4">
                 {hasRegistered ? (
-                  <button disabled className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-500/30 cursor-not-allowed">
-                    ✓ 已报名
+                  <button
+                    onClick={handleCancelRegistration}
+                    disabled={isRegistering}
+                    className="w-full bg-rose-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-rose-500/30 hover:bg-rose-600 hover:shadow-rose-600/50 hover:-translate-y-1 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRegistering ? '处理中...' : '✕ 取消报名'}
                   </button>
-                ) : hasRegistration ? (
+                ) : hasRegistration && registrationStatus === 'open' ? (
                   <button
                     onClick={handleRegisterClick}
                     className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 transform active:scale-95 transition-all"
                   >
                     立即报名
+                  </button>
+                ) : hasRegistration && registrationStatus === 'not_started' ? (
+                  <button disabled className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-amber-500/30 cursor-not-allowed">
+                    {registrationStatusText}
+                  </button>
+                ) : hasRegistration && registrationStatus === 'ended' ? (
+                  <button disabled className="w-full bg-slate-400 text-white py-4 rounded-2xl font-black cursor-not-allowed">
+                    报名已结束
                   </button>
                 ) : (
                   <button disabled className="w-full bg-slate-100 text-slate-400 py-4 rounded-2xl font-black cursor-not-allowed">

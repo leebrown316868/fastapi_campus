@@ -18,6 +18,8 @@ class Notification(Base):
     avatar: Mapped[str] = mapped_column(String(500), nullable=True)
     location: Mapped[str] = mapped_column(String(200), nullable=True)
     is_important: Mapped[bool] = mapped_column(Boolean, default=False)
+    attachment: Mapped[str] = mapped_column(String(500), nullable=True)  # 文件URL
+    attachment_name: Mapped[str] = mapped_column(String(200), nullable=True)  # 原始文件名
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
 

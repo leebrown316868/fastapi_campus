@@ -124,6 +124,10 @@ export const usersService = {
     });
 
     if (!response.ok) {
+      // Handle auth errors - trigger reload to let AuthContext handle redirect
+      if (response.status === 401 || response.status === 403) {
+        window.location.href = '/';
+      }
       throw new Error('Export failed');
     }
 
@@ -159,6 +163,10 @@ export const usersService = {
     });
 
     if (!response.ok) {
+      // Handle auth errors - trigger reload to let AuthContext handle redirect
+      if (response.status === 401 || response.status === 403) {
+        window.location.href = '/';
+      }
       const error = await response.json().catch(() => ({ detail: response.statusText }));
       throw new Error(error.detail || 'Upload failed');
     }

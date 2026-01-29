@@ -474,6 +474,39 @@ const AdminDashboard: React.FC = () => {
                     className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="edit-is-important"
+                      defaultChecked={editModal.item.is_important || false}
+                      className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary/20"
+                    />
+                    <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <span className="material-symbols-outlined text-red-500" style={{ fontSize: '18px' }}>priority_high</span>
+                      标记为重要通知
+                    </span>
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-slate-900">附件</label>
+                  <div className="text-xs text-slate-500 mb-2">
+                    {editModal.item.attachment_name ? (
+                      <span className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-sm">attach_file</span>
+                        当前附件: {editModal.item.attachment_name}
+                      </span>
+                    ) : (
+                      <span>暂无附件</span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf,.ppt,.pptx,.doc,.docx"
+                    id="edit-attachment"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:cursor-pointer hover:file:bg-primary/20"
+                  />
+                </div>
               </>
             )}
 
@@ -577,6 +610,57 @@ const AdminDashboard: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* 报名时间设置 */}
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="block text-sm font-bold text-slate-900 mb-3">报名时间（可选）</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-500">报名开始</label>
+                      <input
+                        type="datetime-local"
+                        defaultValue={editModal.item.registration_start ? new Date(editModal.item.registration_start).toISOString().slice(0, 16) : ''}
+                        id="edit-registration-start"
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-500">报名结束</label>
+                      <input
+                        type="datetime-local"
+                        defaultValue={editModal.item.registration_end ? new Date(editModal.item.registration_end).toISOString().slice(0, 16) : ''}
+                        id="edit-registration-end"
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">留空表示无需报名</p>
+                </div>
+
+                {/* 活动时间设置 */}
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="block text-sm font-bold text-slate-900 mb-3">活动时间</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-500">活动开始 *</label>
+                      <input
+                        type="datetime-local"
+                        defaultValue={editModal.item.activity_start ? new Date(editModal.item.activity_start).toISOString().slice(0, 16) : ''}
+                        id="edit-activity-start"
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-500">活动结束</label>
+                      <input
+                        type="datetime-local"
+                        defaultValue={editModal.item.activity_end ? new Date(editModal.item.activity_end).toISOString().slice(0, 16) : ''}
+                        id="edit-activity-end"
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
               </>
             )}
 
@@ -652,7 +736,7 @@ const AdminDashboard: React.FC = () => {
               取消
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
                 const data: any = {};
                 if (editModal.type === 'notification') {
                   const title = (document.getElementById('edit-title') as HTMLInputElement)?.value;
@@ -660,11 +744,47 @@ const AdminDashboard: React.FC = () => {
                   const course = (document.getElementById('edit-course') as HTMLInputElement)?.value;
                   const author = (document.getElementById('edit-author') as HTMLInputElement)?.value;
                   const location = (document.getElementById('edit-location') as HTMLInputElement)?.value;
+                  const isImportant = (document.getElementById('edit-is-important') as HTMLInputElement)?.checked;
+                  const attachmentFile = (document.getElementById('edit-attachment') as HTMLInputElement)?.files?.[0];
+
                   if (title) data.title = title;
                   if (content) data.content = content;
                   if (course) data.course = course;
                   if (author) data.author = author;
-                  if (location) data.location = location;
+                  if (location !== undefined) data.location = location || null;
+                  if (isImportant !== undefined) data.is_important = isImportant;
+
+                  // Upload attachment if new file selected
+                  if (attachmentFile) {
+                    try {
+                      setIsSaving(true);
+                      const formData = new FormData();
+                      formData.append('file', attachmentFile);
+
+                      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upload/document`, {
+                        method: 'POST',
+                        body: formData,
+                      });
+
+                      if (!response.ok) {
+                        // Handle auth errors - trigger reload to let AuthContext handle redirect
+                        if (response.status === 401 || response.status === 403) {
+                          window.location.href = '/';
+                        }
+                        const error = await response.json();
+                        throw new Error(error.detail || '上传失败');
+                      }
+
+                      const result = await response.json();
+                      data.attachment = result.url;
+                      data.attachment_name = result.original_filename;
+                    } catch (error) {
+                      console.error('File upload error:', error);
+                      showToast(`附件上传失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+                      setIsSaving(false);
+                      return;
+                    }
+                  }
                 } else if (editModal.type === 'activity') {
                   const title = (document.getElementById('edit-title') as HTMLInputElement)?.value;
                   const description = (document.getElementById('edit-description') as HTMLTextAreaElement)?.value;
@@ -675,6 +795,13 @@ const AdminDashboard: React.FC = () => {
                   const status = (document.getElementById('edit-status') as HTMLSelectElement)?.value;
                   const category = (document.getElementById('edit-category') as HTMLSelectElement)?.value;
                   const image = (document.getElementById('edit-image') as HTMLInputElement)?.value;
+
+                  // Registration times
+                  const regStartInput = (document.getElementById('edit-registration-start') as HTMLInputElement)?.value;
+                  const regEndInput = (document.getElementById('edit-registration-end') as HTMLInputElement)?.value;
+                  const activityStartInput = (document.getElementById('edit-activity-start') as HTMLInputElement)?.value;
+                  const activityEndInput = (document.getElementById('edit-activity-end') as HTMLInputElement)?.value;
+
                   if (title) data.title = title;
                   if (description) data.description = description;
                   if (notes) data.notes = notes;
@@ -684,6 +811,18 @@ const AdminDashboard: React.FC = () => {
                   if (status) data.status = status;
                   if (category) data.category = category;
                   if (image) data.image = image;
+
+                  // Handle registration times
+                  if (regStartInput) data.registration_start = new Date(regStartInput).toISOString();
+                  if (regEndInput) data.registration_end = new Date(regEndInput).toISOString();
+                  if (!regStartInput && !regEndInput) {
+                    data.registration_start = null;
+                    data.registration_end = null;
+                  }
+
+                  // Handle activity times
+                  if (activityStartInput) data.activity_start = new Date(activityStartInput).toISOString();
+                  if (activityEndInput) data.activity_end = new Date(activityEndInput).toISOString();
                 } else if (editModal.type === 'lost-item') {
                   const title = (document.getElementById('edit-title') as HTMLInputElement)?.value;
                   const description = (document.getElementById('edit-description') as HTMLTextAreaElement)?.value;
@@ -811,12 +950,24 @@ const AdminDashboard: React.FC = () => {
                   <tbody className="divide-y divide-slate-200">
                     {(() => {
                       // Combine all data and filter by search
-                      const allItems = [...notifications, ...activities, ...lostItems];
+                      // Use a Map to ensure uniqueness by ID and type
+                      const itemMap = new Map();
+                      [...notifications, ...activities, ...lostItems].forEach(item => {
+                        const isNotification = notifications.find(n => n.id === item.id);
+                        const type = isNotification ? '通知' : activities.find(a => a.id === item.id) ? '活动' : '失物';
+                        const uniqueKey = `${type}-${item.id}`;
+                        if (!itemMap.has(uniqueKey)) {
+                          itemMap.set(uniqueKey, { ...item, _type: type });
+                        }
+                      });
+
+                      let itemsToDisplay = Array.from(itemMap.values());
+
                       const filteredItems = search
-                        ? allItems.filter(item =>
+                        ? itemsToDisplay.filter(item =>
                             item.title?.toLowerCase().includes(search.toLowerCase())
                           )
-                        : allItems.slice(0, 5); // Show first 5 when no search
+                        : itemsToDisplay.slice(0, 5); // Show first 5 when no search
 
                       const sortedItems = filteredItems
                         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -836,21 +987,19 @@ const AdminDashboard: React.FC = () => {
                       }
 
                       return sortedItems.map((item) => {
-                        const isNotification = notifications.find(n => n.id === item.id);
-                        const isActivity = activities.find(a => a.id === item.id);
-                        const type = isNotification ? '通知' : isActivity ? '活动' : '失物';
+                        const type = item._type;
                         const typeColor = type === '通知' ? 'bg-blue-100 text-blue-700' :
                                          type === '活动' ? 'bg-emerald-100 text-emerald-700' :
                                          'bg-amber-100 text-amber-700';
                         // Determine which tab to navigate to
-                        const targetTab = isNotification ? 'notifications' : isActivity ? 'activities' : 'lost-found';
-                        const editType: EditModalType = isNotification ? 'notification' : isActivity ? 'activity' : 'lost-item';
+                        const targetTab = type === '通知' ? 'notifications' : type === '活动' ? 'activities' : 'lost-found';
+                        const editType: EditModalType = type === '通知' ? 'notification' : type === '活动' ? 'activity' : 'lost-item';
 
                         const handleDelete = (e: React.MouseEvent) => {
                           e.stopPropagation();
-                          if (isNotification) {
+                          if (type === '通知') {
                             handleDeleteNotification(item.id);
-                          } else if (isActivity) {
+                          } else if (type === '活动') {
                             handleDeleteActivity(item.id);
                           } else {
                             handleDeleteLostItem(item.id);
@@ -864,7 +1013,7 @@ const AdminDashboard: React.FC = () => {
 
                         return (
                           <tr
-                            key={item.id}
+                            key={`${type}-${item.id}`}
                             className="hover:bg-slate-50 transition-colors"
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -1247,7 +1396,13 @@ const AdminDashboard: React.FC = () => {
                       className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                     />
                     <div className="size-16 rounded-xl overflow-hidden">
-                      <img src={item.image} className="w-full h-full object-cover" alt="" />
+                      {item.image ? (
+                        <img src={item.image} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-slate-300">event</span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900">{item.title}</h4>

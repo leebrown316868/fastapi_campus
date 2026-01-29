@@ -47,6 +47,8 @@ async def get_notifications(
             "avatar": n.avatar,
             "location": n.location,
             "is_important": n.is_important,
+            "attachment": n.attachment,
+            "attachment_name": n.attachment_name,
             "time": format_time(n.created_at),
             "created_at": n.created_at,
         }
@@ -81,6 +83,8 @@ async def get_notification(
         avatar=notification.avatar,
         location=notification.location,
         is_important=notification.is_important,
+        attachment=notification.attachment,
+        attachment_name=notification.attachment_name,
         time=format_time(notification.created_at),
         created_at=notification.created_at,
     )
@@ -194,6 +198,8 @@ async def update_notification(
         avatar=notification.avatar,
         location=notification.location,
         is_important=notification.is_important,
+        attachment=notification.attachment,
+        attachment_name=notification.attachment_name,
         time=format_time(notification.created_at),
         created_at=notification.created_at,
     )
