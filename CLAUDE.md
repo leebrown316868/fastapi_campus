@@ -717,3 +717,218 @@ const handleRegistrationConfirm = async () => {
   4. 审核通过后信息正常显示，未审核的信息可隐藏（可扩展）
 
   注意: 由于修改了数据库模型，需要重新运行 python init_db.py 来添加新字段，或者手动迁移数据库。
+
+---
+
+## Session Handoff - 2026-01-29
+
+### 1. Current Core Objective
+完成了 Campus Hub 的批量删除、搜索功能和动态效果的全面实现，提升用户体验和系统可用性。
+
+### 2. Completed Work
+
+**New Files Created:**
+- `backend/app/api/notifications.py` - 添加批量删除端点
+- `backend/app/api/lost_items.py` - 添加批量删除端点
+- `fronted/components/DottedBackground.tsx` - 动态点阵背景组件（鼠标交互）
+- `fronted/pages/SearchResults.tsx` - 搜索结果页面（支持分类筛选）
+- `fronted/services/notifications.service.ts` - 添加 batchDelete 方法
+- `fronted/services/lostItems.service.ts` - 添加 batchDelete 方法
+
+**Modified Files:**
+- `fronted/App.tsx` - 添加搜索结果页面路由
+- `fronted/components/Layout.tsx` - 右上角搜索栏添加搜索功能和炫光效果
+- `fronted/pages/Home.tsx` - 添加动态效果、搜索功能和炫光效果
+- `fronted/pages/Activities.tsx` - 筛选栏改为顶部横向设计，添加动态效果
+- `fronted/pages/Notifications.tsx` - 筛选栏改为顶部横向设计，添加动态效果
+- `fronted/pages/LostAndFound.tsx` - 添加动态效果
+- `fronted/pages/Publish.tsx` - 添加动态效果
+- `fronted/pages/Profile.tsx` - 添加动态效果
+- `fronted/pages/Login.tsx` - 添加动态效果和炫光效果
+- `fronted/pages/AdminLogin.tsx` - 添加动态效果和炫光效果
+- `fronted/pages/AdminDashboard.tsx` - 添加全选功能和批量删除按钮集成到筛选栏
+
+**Working Flows:**
+1. 批量删除：勾选项目 → 点击批量删除按钮 → 确认 → 批量删除
+2. 搜索功能：输入关键词 → 按回车/点击按钮 → 跳转搜索结果页 → 分类查看结果
+3. 点阵背景：页面加载 → 点阵网阵动画 → 鼠标悬停点收缩
+
+### 3. Batch Delete Implementation
+
+**后端 API 模式：**
+```python
+@router.post("/batch-delete", response_model=dict)
+async def batch_delete_items(
+    item_ids: List[int] = Body(..., embed=True),
+    current_admin: CurrentAdmin = None,
+    db: DatabaseSession = None,
+):
+    await db.execute(sql_delete(Model).where(Model.id.in_(item_ids)))
+    await db.commit()
+    return {"deleted": len(item_ids)}
+```
+
+**前端服务模式：**
+```typescript
+async batchDelete(ids: number[]): Promise<{ deleted: number }> {
+  return apiClient.post('/api/xxx/batch-delete', { item_ids: ids });
+}
+```
+
+**前端 UI 模式（集成到筛选栏）：**
+```tsx
+<div className="flex items-center justify-between">
+  {/* 左侧：筛选按钮 */}
+  <div className="flex items-center gap-4">
+    {/* 筛选按钮组 */}
+  </div>
+  {/* 右侧：全选 + 批量删除 */}
+  <div className="flex items-center gap-3">
+    {selected.length > 0 && <span>已选 {selected.length}</span>}
+    <input type="checkbox" onChange={handleSelectAll} />
+    {selected.length > 0 && (
+      <button onClick={handleBatchDelete}>批量删除</button>
+    )}
+  </div>
+</div>
+```
+
+### 4. Search Implementation
+
+**搜索栏炫光效果：**
+```tsx
+<form onSubmit={handleSearch} className="relative">
+  {/* 炫光层 */}
+  <div className={`absolute inset-0 rounded-full bg-gradient-to-r from-emerald-400/20 via-primary/20 to-blue-400/20 blur-xl ${
+    isFocused ? 'opacity-100 scale-105' : 'opacity-0'
+  }`}></div>
+
+  {/* 阴影效果 */}
+  <div className={isFocused ? 'shadow-[0_0_40px_rgba(16,185,129,0.3)]' : ''}>
+    <input
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+    />
+  </div>
+</form>
+```
+
+**搜索结果页面模式：**
+```tsx
+// 并行搜索三个数据源
+const [notifications, activities, lostItems] = await Promise.all([
+  notificationsService.getAll(),
+  activitiesService.getAll(),
+  lostItemsService.getAll(),
+]);
+
+// 客户端过滤
+const searchLower = query.toLowerCase();
+const filtered = data.filter(item =>
+  item.title.toLowerCase().includes(searchLower) ||
+  item.description.toLowerCase().includes(searchLower)
+);
+```
+
+### 5. Dotted Background Component
+
+**动态效果特性：**
+- 点阵网阵：点与点之间自动连线（距离 < 120px）
+- 鼠标交互：附近点收缩（size * 0.5）+ 被推开
+- 浮动动画：点在基础位置附近轻微浮动
+- 渐变背景：`linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)`
+
+**使用方式：**
+```tsx
+import DottedBackground from '../components/DottedBackground';
+
+<div className="relative min-h-screen">
+  <DottedBackground />
+  <div className="relative z-10">
+    {/* 内容 */}
+  </div>
+</div>
+```
+
+### 6. Unified Filter Design
+
+**统一筛选栏风格：**
+```tsx
+<div className="glass-card rounded-2xl p-4 mb-8 flex flex-col gap-4">
+  <div className="flex items-center gap-2 flex-wrap">
+    <span className="text-sm font-bold text-slate-600">筛选：</span>
+
+    {/* 筛选按钮 */}
+    <button className={`px-4 py-2 rounded-xl text-sm font-bold ${
+      selected ? 'bg-slate-900 text-white' : 'bg-white/60 text-slate-600 hover:bg-white/80'
+    }`}>
+      选项
+    </button>
+
+    {/* 分隔符 */}
+    <div className="w-px h-6 bg-slate-300 mx-2"></div>
+  </div>
+</div>
+```
+
+**从侧边栏到顶部筛选栏的布局变更：**
+- 旧布局：侧边栏 `w-80 flex-col` + 主内容区 `flex-1`
+- 新布局：顶部筛选栏 + 单列内容区 `max-w-[1200px] mx-auto`
+
+### 7. New API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/notifications/batch-delete` | Admin | 批量删除通知 |
+| POST | `/api/lost-items/batch-delete` | Admin | 批量删除失物招领 |
+
+### 8. Environment Variables & Key Values
+| Variable | Value |
+|----------|-------|
+| VITE_API_URL | http://localhost:8000 |
+| Frontend Port | 3000 |
+| Backend Port | 8000 |
+
+### 9. Next Actions (Prioritized)
+1. **测试批量删除:** 测试通知、活动、失物招领的批量删除功能
+2. **测试搜索功能:** 验证搜索结果的准确性和分类筛选
+3. **统一错误处理:** 401/403 自动跳转登录
+4. **图片上传功能:** 完成现有部分实现
+
+### 10. Quick Restart Command
+```bash
+# Terminal 1 - Backend
+cd backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 - Frontend
+cd fronted
+npm run dev
+```
+
+### 11. Critical Implementation Notes
+
+**批量删除全选逻辑：**
+```tsx
+checked={selected.length > 0 && selected.length === filteredItems.length}
+onChange={(e) => {
+  setSelected(e.target.checked ? filteredItems.map(i => i.id) : []);
+}}
+```
+
+**搜索 URL 模式：**
+```tsx
+navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+// 解析: const query = searchParams.get('q') || '';
+```
+
+**炫光效果 transition-all duration-500：**
+- 未聚焦：`opacity-0 scale-95`
+- 聚焦后：`opacity-100 scale-105`
+
+**筛选器按钮命名约定：**
+- 选中状态使用主题色 `bg-slate-900` 或 `bg-primary`
+- 未选中状态使用半透明 `bg-white/60`
+- 悬停效果 `hover:bg-white/80`
