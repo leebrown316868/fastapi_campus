@@ -6,7 +6,12 @@ from app.db.database import Base
 
 
 class ActivityRegistration(Base):
-    """Activity registration model for users signing up for activities."""
+    """Activity registration model for users signing up for activities.
+
+    Note: Each user can have multiple registration records for the same activity
+    with different statuses (e.g., confirmed -> cancelled -> confirmed again).
+    Application layer ensures only one 'confirmed' or 'attended' record exists.
+    """
 
     __tablename__ = "activity_registrations"
 

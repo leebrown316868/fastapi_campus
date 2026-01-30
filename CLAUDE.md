@@ -340,70 +340,91 @@ import { NotificationBell } from '../components/NotificationBell';
 ## Session Handoff - 2026-01-30
 
 ### 1. Current Core Objective
-完成了 Campus Hub 的最新动态接口、课程通知附件上传、活动报名功能完善，以及管理后台编辑功能与发布页面对齐。
+完成了失物招领隐私设置功能，允许用户控制个人信息在失物招领页面和用户资料卡片的显示。
 
 ### 2. Completed Work
 
 **New Files Created:**
-- `backend/app/api/feed.py` - 最新动态聚合API（GET /api/feed/latest）
-- `backend/app/api/uploads.py` - 添加文档上传端点（POST /api/upload/document，支持PDF、PPT、PPTX、DOC、DOCX）
-- `fronted/services/feed.service.ts` - Feed API 服务层
-- `fronted/components/DottedBackground.tsx` - 动态点阵背景组件
+- `backend/add_privacy_columns.py` - 数据库迁移脚本，添加隐私设置字段
 
 **Modified Files:**
-- `backend/app/models/notification.py` - 添加 `attachment` 和 `attachment_name` 字段
-- `backend/app/schemas/notification.py` - 更新 schema 包含附件字段
-- `backend/app/api/notifications.py` - 响应包含附件字段
-- `fronted/pages/Home.tsx` - 使用真实 Feed API 替代 MOCK_NEWS，添加动态效果
-- `fronted/pages/Publish.tsx` - 添加位置、重要程度、附件上传功能
-- `fronted/pages/Notifications.tsx` - 移除"全部已读"按钮，添加附件下载链接
-- `fronted/pages/ActivityDetail.tsx` - 添加取消报名功能、报名时间状态显示、图片空值检查
-- `fronted/pages/AdminDashboard.tsx` - 添加通知/活动编辑的附件字段、报名时间字段，修复重复 key 问题
-- `fronted/components/Layout.tsx` - 移除旧版气泡背景代码
-- `fronted/index.html` - 移除 mesh-gradient 类和气泡 CSS
-- `backend/app/api/activity_registrations.py` - 修复时区问题（使用 datetime.now() 而不是 utcnow()）
+- `backend/app/models/user.py` - 添加4个隐私设置字段（show_name_in_lost_item, show_avatar_in_lost_item, show_email_in_lost_item, show_phone_in_lost_item）
+- `backend/app/schemas/user.py` - 更新UserUpdate和UserResponse包含隐私设置
+- `backend/app/schemas/lost_item.py` - PublisherInfo支持可选字段（name, avatar, email, phone）
+- `backend/app/api/lost_items.py` - 根据用户隐私设置过滤发布者信息
+- `backend/app/api/users.py` - GET /api/users/{user_id} 改为公开访问
+- `fronted/types.ts` - User和LostItem接口添加隐私字段
+- `fronted/contexts/AuthContext.tsx` - 保存/加载隐私设置到用户状态
+- `fronted/pages/Profile.tsx` - 新增"隐私设置"标签页，开关UI修复（translate-x-1/translate-x-5）
+- `fronted/pages/UserProfile.tsx` - 根据隐私设置和是否是自己的资料选择性显示信息
+- `fronted/pages/ItemDetail.tsx` - 移除联系方式显示，保留跳转用户资料按钮
+- `fronted/pages/LostAndFound.tsx` - 发布者姓名为空时显示"匿名用户"
 
 **Working Flows:**
-1. **最新动态**：首页聚合通知、活动、失物招领，按时间排序显示
-2. **课程通知附件上传**：发布时可上传PDF/Word文档，显示时可下载
-3. **活动报名状态**：根据报名时间显示不同按钮（未开始/进行中/已结束）
-4. **取消报名**：已报名用户可以取消报名
-5. **管理后台编辑**：通知和活动编辑支持所有字段（包括附件、报名时间）
+1. **隐私设置**：用户可在个人中心控制失物招领中显示哪些信息
+2. **用户资料页面**：
+   - 查看自己的资料：显示所有信息
+   - 查看别人的资料：根据该用户的隐私设置显示对应信息
+   - 隐藏的信息显示带锁图标的"未公开"
 
-### 3. Bug Fixes
+### 3. Privacy Settings Details
 
-**Bug #1: 404 Error on `/api/feed/latest`**
-- **Root Cause:** 路由前缀错误（`/feed` 而非 `/api/feed`）
-- **Solution:** 更新 router prefix 为 `/api/feed`
+**4个隐私设置选项：**
+| 设置项 | 默认值 | 说明 |
+|--------|--------|------|
+| show_name_in_lost_item | true | 失物招领中显示姓名 |
+| show_avatar_in_lost_item | true | 失物招领中显示头像 |
+| show_email_in_lost_item | false | 允许他人通过邮箱联系 |
+| show_phone_in_lost_item | false | 允许他人通过手机联系 |
 
-**Bug #2: 活动报名时区不匹配**
-- **Root Cause:** 后端使用 `datetime.utcnow()` 与数据库本地时间比较
-- **Solution:** 改用 `datetime.now()` 进行本地时间比较
+**显示逻辑：**
+```tsx
+// 查看自己的资料 - 显示所有信息
+const isOwnProfile = currentUser?.id === user.id.toString();
 
-**Bug #3: 新建活动无法报名**
-- **Root Cause:** 报名开始时间设为未来时间
-- **Solution:** 添加报名时间状态显示，清晰的错误提示
+// 姓名
+{isOwnProfile || user.show_name_in_lost_item !== false ? user.name : '匿名用户'}
 
-**Bug #4: 旧版背景 UI 闪烁**
-- **Root Cause:** Layout.tsx 中有旧气泡背景代码，index.html 有 mesh-gradient 类
-- **Solution:** 移除旧背景代码
+// 头像
+{(isOwnProfile || user.show_avatar_in_lost_item !== false) && user.avatar ? <img /> : initials}
 
-**Bug #5: AdminDashboard 重复 key 警告**
-- **Root Cause:** 概览页面合并通知/活动/失物招领时，不同表有相同 ID
-- **Solution:** 使用 Map 确保唯一性，key 改为 `${type}-${id}`
+// 手机/邮箱 - 隐藏时显示"未公开"
+{!isOwnProfile && !user.show_phone_in_lost_item ? (
+  <div className="opacity-50">🔒 未公开</div>
+) : user.phone ? (
+  <div>{user.phone}</div>
+) : null}
+```
 
-**Bug #6: 图片 src 空字符串警告**
-- **Root Cause:** 活动图片可能为空字符串
-- **Solution:** 添加空值检查，显示占位符
+### 4. Database Migration
 
-### 4. New API Endpoints
+**执行状态：** ✅ 已完成
+```bash
+cd backend
+python add_privacy_columns.py
+```
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/feed/latest?limit=10` | No | 获取最新动态聚合信息 |
-| POST | `/api/upload/document` | User+ | 上传文档文件（PDF/PPT/Word） |
+**添加的列：**
+```sql
+ALTER TABLE users ADD COLUMN show_name_in_lost_item BOOLEAN DEFAULT 1;
+ALTER TABLE users ADD COLUMN show_avatar_in_lost_item BOOLEAN DEFAULT 1;
+ALTER TABLE users ADD COLUMN show_email_in_lost_item BOOLEAN DEFAULT 0;
+ALTER TABLE users ADD COLUMN show_phone_in_lost_item BOOLEAN DEFAULT 0;
+```
 
-### 5. Environment Variables & Key Values
+### 5. Toggle Switch UI Fix
+
+**问题：** 开关白色圆球默认位置在右侧，开启后超出范围
+**解决方案：**
+```tsx
+// 修复前
+translate-x-1 (关闭) / translate-x-6 (开启) ❌
+
+// 修复后
+left-0 translate-x-1 (关闭) / translate-x-5 (开启) ✅
+```
+
+### 6. Environment Variables & Key Values
 | Variable | Value |
 |----------|-------|
 | VITE_API_URL | http://localhost:8000 |
@@ -411,12 +432,11 @@ import { NotificationBell } from '../components/NotificationBell';
 | Backend Port | 8000 |
 | Database | SQLite (campus_hub.db) |
 
-### 6. Next Actions (Prioritized)
-1. **统一错误处理:** 401/403 自动跳转登录
-2. **图片上传功能:** 完成失物招领图片上传
-3. **测试完整流程:** 测试最新动态、附件上传、报名/取消报名
+### 7. Next Actions (Prioritized)
+1. **测试隐私设置：** 验证开关保存和显示逻辑
+2. **完整流程测试：** 从失物招领点击"联系发布者"查看隐私设置效果
 
-### 7. Quick Restart Command
+### 8. Quick Restart Command
 ```bash
 # Terminal 1 - Backend
 cd backend
@@ -425,67 +445,6 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 # Terminal 2 - Frontend
 cd fronted
 npm run dev
-```
-
-### 8. Critical Implementation Notes
-
-**Feed API 数据结构：**
-```json
-{
-  "items": [
-    {
-      "id": "notification-1",
-      "type": "notification",
-      "tag": "重要",
-      "tag_color": "bg-blue-100 text-blue-700",
-      "title": "...",
-      "description": "...",
-      "time": "2小时前",
-      "created_at": "2026-01-29T...",
-      "link_url": "/notifications"
-    }
-  ],
-  "total": 6
-}
-```
-
-**课程通知发布字段（完整版）：**
-```typescript
-{
-  course, title, content,
-  location,        // 可选
-  is_important,    // 是否重要
-  attachment,      // 文件URL（上传后返回）
-  attachment_name, // 原始文件名
-  author,
-  avatar
-}
-```
-
-**活动报名时间编辑：**
-- 报名开始时间：`datetime-local` 输入
-- 报名结束时间：`datetime-local` 输入
-- 活动开始时间：`datetime-local` 输入
-- 活动结束时间：`datetime-local` 输入
-- 数据格式：ISO 8601 字符串
-
-**活动报名状态判断：**
-```typescript
-const now = new Date();
-const regStart = new Date(activity.registration_start);
-const regEnd = new Date(activity.registration_end);
-
-if (!hasRegistration) {
-  registrationStatus = 'no_registration';
-} else if (now < regStart) {
-  registrationStatus = 'not_started';
-  registrationStatusText = '报名未开始（...开始）';
-} else if (now > regEnd) {
-  registrationStatus = 'ended';
-  registrationStatusText = '报名已结束';
-} else {
-  registrationStatus = 'open';
-}
 ```
 
 ---

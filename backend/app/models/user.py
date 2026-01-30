@@ -22,6 +22,11 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Privacy settings for lost & found
+    show_name_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_avatar_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_email_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=False)
+    show_phone_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 

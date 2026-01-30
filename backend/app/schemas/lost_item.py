@@ -48,6 +48,9 @@ class LostItemResponse(LostItemBase):
 
 
 class PublisherInfo(BaseModel):
-    """Publisher info for lost items."""
-    name: str
-    avatar: str
+    """Publisher info for lost items (privacy-aware)."""
+    id: int
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None

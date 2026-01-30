@@ -37,8 +37,12 @@ class Activity(Base):
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     def calculate_status(self) -> str:
-        """Calculate activity status based on current time and time fields."""
-        now = datetime.utcnow()
+        """Calculate activity status based on current time and time fields.
+
+        Note: Database stores local time (without timezone), so we use
+        datetime.now() for comparison, not datetime.utcnow().
+        """
+        now = datetime.now()
 
         # Check if activity has ended
         if self.activity_end and now >= self.activity_end:

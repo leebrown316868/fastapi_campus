@@ -156,10 +156,21 @@ const ActivityDetail: React.FC = () => {
   const now = new Date();
   const regStart = new Date(activity.registration_start);
   const regEnd = new Date(activity.registration_end);
+  const actStart = new Date(activity.activity_start);
+  const actEnd = activity.activity_end ? new Date(activity.activity_end) : null;
 
   let registrationStatus = 'open'; // 'open', 'not_started', 'ended', 'no_registration'
   let registrationStatusText = '';
+  let activityStatus = 'upcoming'; // 'upcoming', 'ongoing', 'finished'
 
+  // Check activity status
+  if (actEnd && now >= actEnd) {
+    activityStatus = 'finished';
+  } else if (now >= actStart) {
+    activityStatus = 'ongoing';
+  }
+
+  // Check registration status
   if (!hasRegistration) {
     registrationStatus = 'no_registration';
   } else if (now < regStart) {
@@ -312,13 +323,23 @@ const ActivityDetail: React.FC = () => {
 
               <div className="space-y-4">
                 {hasRegistered ? (
-                  <button
-                    onClick={handleCancelRegistration}
-                    disabled={isRegistering}
-                    className="w-full bg-rose-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-rose-500/30 hover:bg-rose-600 hover:shadow-rose-600/50 hover:-translate-y-1 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isRegistering ? '处理中...' : '✕ 取消报名'}
-                  </button>
+                  activityStatus === 'finished' ? (
+                    <button disabled className="w-full bg-slate-300 text-white py-4 rounded-2xl font-black cursor-not-allowed">
+                      活动已结束
+                    </button>
+                  ) : activityStatus === 'ongoing' ? (
+                    <button disabled className="w-full bg-blue-400 text-white py-4 rounded-2xl font-black cursor-not-allowed">
+                      活动进行中
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleCancelRegistration}
+                      disabled={isRegistering}
+                      className="w-full bg-rose-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-rose-500/30 hover:bg-rose-600 hover:shadow-rose-600/50 hover:-translate-y-1 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isRegistering ? '处理中...' : '✕ 取消报名'}
+                    </button>
+                  )
                 ) : hasRegistration && registrationStatus === 'open' ? (
                   <button
                     onClick={handleRegisterClick}

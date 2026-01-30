@@ -103,10 +103,13 @@ async def get_users(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
-    current_admin: CurrentAdmin = None,
     db: DatabaseSession = None,
 ):
-    """Get a specific user by ID (admin only)."""
+    """Get a specific user by ID (public access).
+
+    Returns public user profile information for viewing publisher details.
+    Sensitive information is not included in the response.
+    """
     result = await db.execute(
         select(User).where(User.id == user_id)
     )

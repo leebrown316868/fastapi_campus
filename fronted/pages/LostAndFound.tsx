@@ -19,6 +19,20 @@ const LostAndFound: React.FC = () => {
     setVisible(true);
   }, []);
 
+  // 类别定义和映射
+  const categoryConfig: Record<string, { label: string; icon: string; color: string }> = {
+    electronics: { label: '电子数码', icon: 'devices', color: 'blue' },
+    cards: { label: '证件卡片', icon: 'badge', color: 'purple' },
+    books: { label: '书籍文具', icon: 'menu_book', color: 'green' },
+    daily: { label: '生活用品', icon: 'coffee', color: 'amber' },
+    clothing: { label: '服饰配件', icon: 'checkroom', color: 'pink' },
+    sports: { label: '运动器材', icon: 'sports_basketball', color: 'red' },
+    keys: { label: '钥匙', icon: 'key', color: 'slate' },
+    other: { label: '其他', icon: 'more_horiz', color: 'gray' },
+  };
+
+  const categories = ['all', ...Object.keys(categoryConfig)];
+
   // Fetch lost items from API
   useEffect(() => {
     const fetchLostItems = async () => {
@@ -60,9 +74,6 @@ const LostAndFound: React.FC = () => {
     fetchLostItems();
   }, [filter, categoryFilter, timeFilter]);
 
-  // Get all categories from current items
-  const categories = ['all', ...Array.from(new Set(lostItems.map(item => item.category)))];
-
   // Client-side search filter
   const filteredItems = lostItems.filter(item => {
     return searchQuery === '' ||
@@ -101,7 +112,7 @@ const LostAndFound: React.FC = () => {
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === 'all'
-                ? 'bg-slate-900 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
               }`}
           >
@@ -110,7 +121,7 @@ const LostAndFound: React.FC = () => {
           <button
             onClick={() => setFilter('lost')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === 'lost'
-                ? 'bg-red-500 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
               }`}
           >
@@ -119,7 +130,7 @@ const LostAndFound: React.FC = () => {
           <button
             onClick={() => setFilter('found')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === 'found'
-                ? 'bg-emerald-500 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
               }`}
           >
@@ -132,7 +143,7 @@ const LostAndFound: React.FC = () => {
           <button
             onClick={() => setTimeFilter('all')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'all'
-                ? 'bg-slate-900 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
               }`}
           >
@@ -141,7 +152,7 @@ const LostAndFound: React.FC = () => {
           <button
             onClick={() => setTimeFilter('week')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'week'
-                ? 'bg-slate-900 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
               }`}
           >
@@ -150,7 +161,7 @@ const LostAndFound: React.FC = () => {
           <button
             onClick={() => setTimeFilter('month')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'month'
-                ? 'bg-slate-900 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
               }`}
           >
@@ -159,21 +170,43 @@ const LostAndFound: React.FC = () => {
         </div>
 
         {/* Category Filter & Search */}
-        <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           {/* Category Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-600">分类：</span>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-4 py-2 rounded-xl bg-white/60 text-slate-600 text-sm font-bold border-0 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer hover:bg-white/80 transition-all"
-            >
-              {categories.map(cat => (
-                <option key={cat} value={cat}>
-                  {cat === 'all' ? '全部分类' : cat}
-                </option>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-slate-600">类别：</span>
+            <div className="flex bg-white/60 rounded-xl p-1 flex-wrap gap-1">
+              <button
+                onClick={() => setCategoryFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  categoryFilter === 'all'
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                }`}
+              >
+                全部
+              </button>
+              {Object.entries(categoryConfig).map(([key, config]) => (
+                <button
+                  key={key}
+                  onClick={() => setCategoryFilter(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
+                    categoryFilter === key
+                      ? 'bg-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                  }`}
+                  style={categoryFilter === key ? { color: config.color === 'blue' ? '#3b82f6' :
+                         config.color === 'purple' ? '#9333ea' :
+                         config.color === 'green' ? '#22c55e' :
+                         config.color === 'amber' ? '#f59e0b' :
+                         config.color === 'pink' ? '#ec4899' :
+                         config.color === 'red' ? '#ef4444' :
+                         config.color === 'slate' ? '#64748b' : '#6b7280' } : {}}
+                >
+                  <span className="material-symbols-outlined text-sm">{config.icon}</span>
+                  {config.label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           {/* Search */}
@@ -219,7 +252,15 @@ const LostAndFound: React.FC = () => {
               </div>
               <div className="p-5 flex flex-col gap-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
-                  {item.category} {item.publisher && `• ${item.publisher.name}`}
+                  {categoryConfig[item.category] && (
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">
+                        {categoryConfig[item.category].icon}
+                      </span>
+                      {categoryConfig[item.category].label}
+                    </span>
+                  )}
+                  {item.publisher && <span>• {item.publisher.name || '匿名用户'}</span>}
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 group-hover:text-primary transition-colors">{item.title}</h3>
                 <div className="flex items-center gap-2 text-xs text-slate-500">

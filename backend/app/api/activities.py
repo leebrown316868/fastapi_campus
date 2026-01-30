@@ -41,6 +41,17 @@ async def get_activities(
     result = await db.execute(query)
     activities = result.scalars().all()
 
+    # Recalculate status for all activities to ensure they're up-to-date
+    status_updated = False
+    for activity in activities:
+        new_status = activity.calculate_status()
+        if activity.status != new_status:
+            activity.status = new_status
+            status_updated = True
+
+    if status_updated:
+        await db.commit()
+
     return [ActivityResponse.model_validate(a) for a in activities]
 
 
@@ -60,6 +71,12 @@ async def get_activity(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Activity not found"
         )
+
+    # Recalculate status to ensure it's up-to-date
+    new_status = activity.calculate_status()
+    if activity.status != new_status:
+        activity.status = new_status
+        await db.commit()
 
     return ActivityResponse.model_validate(activity)
 
@@ -114,7 +131,7 @@ async def delete_activity(
     current_user: CurrentAdmin = None,
     db: DatabaseSession = None,
 ):
-    """Delete an activity (admin only)."""
+    """Delete an activity and all its registrations (admin only)."""
     result = await db.execute(
         select(Activity).where(Activity.id == activity_id)
     )
@@ -126,6 +143,13 @@ async def delete_activity(
             detail="Activity not found"
         )
 
+    # First, delete all registrations for this activity
+    from app.models.activity_registration import ActivityRegistration
+    await db.execute(
+        sql_delete(ActivityRegistration).where(ActivityRegistration.activity_id == activity_id)
+    )
+
+    # Then delete the activity
     await db.delete(activity)
     await db.commit()
 
@@ -174,14 +198,20 @@ async def batch_delete_activities(
     current_admin: CurrentAdmin = None,
     db: DatabaseSession = None,
 ):
-    """Delete multiple activities (admin only)."""
+    """Delete multiple activities and all their registrations (admin only)."""
     if not activity_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No activity IDs provided"
         )
 
-    # Delete activities
+    # First, delete all registrations for these activities
+    from app.models.activity_registration import ActivityRegistration
+    await db.execute(
+        sql_delete(ActivityRegistration).where(ActivityRegistration.activity_id.in_(activity_ids))
+    )
+
+    # Then delete the activities
     await db.execute(
         sql_delete(Activity).where(Activity.id.in_(activity_ids))
     )

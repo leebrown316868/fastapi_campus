@@ -64,7 +64,7 @@ const Notifications: React.FC = () => {
             <button
               onClick={() => setImportantFilter('all')}
               className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${importantFilter === 'all'
-                  ? 'bg-slate-900 text-white'
+                  ? 'bg-primary text-white'
                   : 'bg-white/60 text-slate-600 hover:bg-white/80'
                 }`}
             >
@@ -73,7 +73,7 @@ const Notifications: React.FC = () => {
             <button
               onClick={() => setImportantFilter('important')}
               className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${importantFilter === 'important'
-                  ? 'bg-red-500 text-white'
+                  ? 'bg-primary text-white'
                   : 'bg-white/60 text-slate-600 hover:bg-white/80'
                 }`}
             >

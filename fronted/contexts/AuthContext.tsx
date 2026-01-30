@@ -50,6 +50,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Register auth error handler for automatic logout on 401/403
   useEffect(() => {
     const handleAuthError = () => {
+      // Don't redirect if already on login pages (user might be entering wrong password)
+      const currentPath = window.location.hash.replace('#', '') || '/';
+      if (currentPath === '/login' || currentPath === '/admin/login') {
+        // Just clear state without redirecting
+        setUser(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem(USER_TYPE_KEY);
+        return;
+      }
+
       // Get login type to determine redirect path
       const loginType = localStorage.getItem(USER_TYPE_KEY);
       const targetPath = loginType === 'admin' ? '/admin/login' : '/login';
@@ -63,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Navigate to login
       navigate(targetPath);
 
-      // Show toast (use a flag to avoid showing multiple toasts)
+      // Show toast
       showToast('登录已过期，请重新登录', 'warning');
     };
 
@@ -83,13 +94,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if role matches the login type
       if (isAdmin && response.user.role !== 'admin') {
         showToast('该账号不是管理员账号', 'error');
-        await authService.logout();
+        // Clear the session and token but don't call logout (avoids navigation)
+        setUser(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('auth_token');
         return;
       }
 
       if (!isAdmin && response.user.role !== 'user') {
         showToast('该账号不是学生账号', 'error');
-        await authService.logout();
+        // Clear the session and token but don't call logout (avoids navigation)
+        setUser(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('auth_token');
         return;
       }
 
@@ -101,6 +118,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: response.user.name,
         role: response.user.role,
         avatar: response.user.avatar,
+        major: response.user.major,
+        bio: response.user.bio,
+        phone: response.user.phone,
+        isVerified: response.user.is_verified,
+        showNameInLostItem: response.user.show_name_in_lost_item,
+        showAvatarInLostItem: response.user.show_avatar_in_lost_item,
+        showEmailInLostItem: response.user.show_email_in_lost_item,
+        showPhoneInLostItem: response.user.show_phone_in_lost_item,
       };
 
       setUser(userObj);
@@ -150,6 +175,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: response.name,
         role: response.role,
         avatar: response.avatar,
+        major: response.major,
+        bio: response.bio,
+        phone: response.phone,
+        isVerified: response.is_verified,
+        showNameInLostItem: response.show_name_in_lost_item,
+        showAvatarInLostItem: response.show_avatar_in_lost_item,
+        showEmailInLostItem: response.show_email_in_lost_item,
+        showPhoneInLostItem: response.show_phone_in_lost_item,
       };
       setUser(userObj);
       localStorage.setItem('user', JSON.stringify(userObj));

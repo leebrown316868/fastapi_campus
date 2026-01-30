@@ -11,6 +11,7 @@ const SearchResults = lazy(() => import('./pages/SearchResults'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const LostAndFound = lazy(() => import('./pages/LostAndFound'));
 const ItemDetail = lazy(() => import('./pages/ItemDetail'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
 const Publish = lazy(() => import('./pages/Publish'));
 const EditContent = lazy(() => import('./pages/EditContent'));
 const Activities = lazy(() => import('./pages/Activities'));
@@ -75,6 +76,7 @@ const App: React.FC = () => {
                     <Route path="/activities/:id" element={<ActivityDetail />} />
                     <Route path="/publish" element={<Publish />} />
                     <Route path="/edit/:type/:id" element={<EditContent />} />
+                    <Route path="/profile/:userId" element={<UserProfile />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/edit" element={<ProfileEdit />} />
                     <Route path="/settings" element={<Settings />} />

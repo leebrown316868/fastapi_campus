@@ -7,7 +7,7 @@ import { usersService } from '../services/users.service';
 import activityRegistrationsService, { ActivityRegistration } from '../services/activityRegistrations.service';
 import { showToast } from '../components/Toast';
 
-type TabType = 'overview' | 'users' | 'notifications' | 'activities' | 'lost-found';
+type TabType = 'overview' | 'users' | 'notifications' | 'activities' | 'lost-found' | 'pending-review';
 type EditModalType = 'notification' | 'activity' | 'lost-item' | null;
 
 const AdminDashboard: React.FC = () => {
@@ -20,6 +20,7 @@ const AdminDashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [lostItems, setLostItems] = useState<any[]>([]);
+  const [pendingItems, setPendingItems] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
 
   // Edit modal states
@@ -69,7 +70,19 @@ const AdminDashboard: React.FC = () => {
   const [activityTimeFilter, setActivityTimeFilter] = useState<'all' | 'week' | 'month' | 'later'>('all');
   const [lostItemTypeFilter, setLostItemTypeFilter] = useState<'all' | 'lost' | 'found'>('all');
   const [lostItemTimeFilter, setLostItemTimeFilter] = useState<'all' | 'week' | 'month'>('all');
-  const [lostItemCategoryFilter, setLostItemCategoryFilter] = useState<'all' | '电子产品' | '证件卡片' | '学习用品' | '生活用品' | '其他'>('all');
+  const [lostItemCategoryFilter, setLostItemCategoryFilter] = useState<'all' | 'electronics' | 'cards' | 'books' | 'daily' | 'clothing' | 'sports' | 'keys' | 'other'>('all');
+
+  // 失物招领类别配置
+  const lostItemCategoryConfig: Record<string, { label: string; icon: string }> = {
+    electronics: { label: '电子数码', icon: 'devices' },
+    cards: { label: '证件卡片', icon: 'badge' },
+    books: { label: '书籍文具', icon: 'menu_book' },
+    daily: { label: '生活用品', icon: 'coffee' },
+    clothing: { label: '服饰配件', icon: 'checkroom' },
+    sports: { label: '运动器材', icon: 'sports_basketball' },
+    keys: { label: '钥匙', icon: 'key' },
+    other: { label: '其他', icon: 'more_horiz' },
+  };
 
   // Load all data
   useEffect(() => {
@@ -94,6 +107,21 @@ const AdminDashboard: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Load pending items count for overview
+  const loadPendingCount = async () => {
+    try {
+      const pendingData = await lostItemsService.getAll({ review_status: 'pending' });
+      setPendingItems(pendingData);
+    } catch (error) {
+      console.error('Failed to load pending items count:', error);
+    }
+  };
+
+  // Load pending items on mount for overview display
+  useEffect(() => {
+    loadPendingCount();
+  }, []);
 
   // Delete handlers
   const handleDeleteNotification = async (id: number) => {
@@ -186,7 +214,9 @@ const AdminDashboard: React.FC = () => {
   const handleReviewLostItem = async (id: number, approve: boolean) => {
     try {
       const updated = await lostItemsService.review(id, approve);
-      setLostItems(lostItems.map(i => i.id === id ? updated : i));
+      // Update both lists
+      setLostItems(lostItems.filter(i => i.id !== id)); // Remove from approved list
+      setPendingItems(pendingItems.filter(i => i.id !== id)); // Remove from pending list
       showToast(approve ? '已通过审核' : '已拒绝审核', 'success');
     } catch (error) {
       showToast('操作失败', 'error');
@@ -404,6 +434,23 @@ const AdminDashboard: React.FC = () => {
       loadUsers();
     }
   }, [activeTab, userFilter, search]);
+
+  // Load pending items when pending-review tab is active
+  useEffect(() => {
+    if (activeTab === 'pending-review') {
+      loadPendingItems();
+    }
+  }, [activeTab]);
+
+  const loadPendingItems = async () => {
+    try {
+      // Use review_status parameter to get pending items
+      const pendingData = await lostItemsService.getAll({ review_status: 'pending' });
+      setPendingItems(pendingData);
+    } catch (error) {
+      console.error('Failed to load pending items:', error);
+    }
+  };
 
   // Render edit modal
   const renderEditModal = () => {
@@ -701,11 +748,9 @@ const AdminDashboard: React.FC = () => {
                       id="edit-category"
                       className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     >
-                      <option value="电子产品">电子产品</option>
-                      <option value="证件卡片">证件卡片</option>
-                      <option value="学习用品">学习用品</option>
-                      <option value="生活用品">生活用品</option>
-                      <option value="其他">其他</option>
+                      {Object.entries(lostItemCategoryConfig).map(([key, config]) => (
+                        <option key={key} value={key}>{config.label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -876,7 +921,7 @@ const AdminDashboard: React.FC = () => {
         return (
           <div className="space-y-6">
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Notifications Card */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
@@ -921,7 +966,26 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-100">
-                  <p className="text-xs text-slate-500">失物招领信息</p>
+                  <p className="text-xs text-slate-500">已审核失物招领</p>
+                </div>
+              </div>
+
+              {/* Pending Review Card */}
+              <div
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => setActiveTab('pending-review')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="size-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
+                    <span className="material-symbols-outlined text-white text-2xl">fact_check</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-4xl font-black text-slate-900">{pendingItems.length}</p>
+                    <p className="text-sm font-medium text-slate-500 mt-1">待审核</p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <p className="text-xs text-orange-500 font-medium">点击前往审核 →</p>
                 </div>
               </div>
             </div>
@@ -1538,56 +1602,20 @@ const AdminDashboard: React.FC = () => {
                         >
                           全部
                         </button>
-                        <button
-                          onClick={() => setLostItemCategoryFilter('电子产品')}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            lostItemCategoryFilter === '电子产品'
-                              ? 'bg-white text-primary shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          电子产品
-                        </button>
-                        <button
-                          onClick={() => setLostItemCategoryFilter('证件卡片')}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            lostItemCategoryFilter === '证件卡片'
-                              ? 'bg-white text-primary shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          证件卡片
-                        </button>
-                        <button
-                          onClick={() => setLostItemCategoryFilter('学习用品')}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            lostItemCategoryFilter === '学习用品'
-                              ? 'bg-white text-primary shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          学习用品
-                        </button>
-                        <button
-                          onClick={() => setLostItemCategoryFilter('生活用品')}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            lostItemCategoryFilter === '生活用品'
-                              ? 'bg-white text-primary shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          生活用品
-                        </button>
-                        <button
-                          onClick={() => setLostItemCategoryFilter('其他')}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            lostItemCategoryFilter === '其他'
-                              ? 'bg-white text-primary shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          其他
-                        </button>
+                        {Object.entries(lostItemCategoryConfig).map(([key, config]) => (
+                          <button
+                            key={key}
+                            onClick={() => setLostItemCategoryFilter(key as any)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                              lostItemCategoryFilter === key
+                                ? 'bg-white text-primary shadow-sm'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-base">{config.icon}</span>
+                            {config.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -1744,7 +1772,14 @@ const AdminDashboard: React.FC = () => {
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${item.type === 'lost' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
                           {item.type === 'lost' ? '遗失' : '招领'}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">{item.category}</span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold uppercase flex items-center gap-1">
+                          {lostItemCategoryConfig[item.category] && (
+                            <>
+                              <span className="material-symbols-outlined text-xs">{lostItemCategoryConfig[item.category].icon}</span>
+                              {lostItemCategoryConfig[item.category].label}
+                            </>
+                          ) || item.category}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1783,6 +1818,82 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        );
+
+      case 'pending-review':
+        return (
+          <div className="space-y-4">
+            {pendingItems.length === 0 ? (
+              <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-200 text-center">
+                <div className="size-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+                  <span className="material-symbols-outlined text-3xl text-amber-500">check_circle</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">全部审核完成</h3>
+                <p className="text-slate-500 mt-2">暂时没有待审核的失物招领</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {pendingItems.map(item => (
+                  <div key={item.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                    <div className="flex items-start gap-4">
+                      {/* Thumbnail */}
+                      {item.images && item.images.length > 0 ? (
+                        <img
+                          src={item.images[0]}
+                          alt={item.title}
+                          className="size-24 rounded-xl object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="size-24 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-3xl text-slate-300">image</span>
+                        </div>
+                      )}
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                item.type === 'lost' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+                              }`}>
+                                {item.type === 'lost' ? '遗失' : '招领'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-600 text-[10px] font-bold uppercase">
+                                待审核
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
+                                {item.category}
+                              </span>
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 line-clamp-1">{item.title}</h3>
+                            <p className="text-sm text-slate-600 line-clamp-2 mt-1">{item.description}</p>
+                            <p className="text-xs text-slate-500 mt-2">{item.location} • 发布于 {new Date(item.created_at).toLocaleString()}</p>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => handleReviewLostItem(item.id, true)}
+                              className="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-600 hover:bg-emerald-100 transition-colors text-sm font-bold"
+                            >
+                              <span className="material-symbols-outlined text-lg">check</span>
+                              通过
+                            </button>
+                            <button
+                              onClick={() => handleReviewLostItem(item.id, false)}
+                              className="px-4 py-2 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2 text-red-600 hover:bg-red-100 transition-colors text-sm font-bold"
+                            >
+                              <span className="material-symbols-outlined text-lg">close</span>
+                              拒绝
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         );
@@ -2166,6 +2277,20 @@ const AdminDashboard: React.FC = () => {
             </span>
           </button>
           <button
+            onClick={() => setActiveTab('pending-review')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
+              activeTab === 'pending-review'
+                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <span className="material-symbols-outlined">fact_check</span>
+            待审核
+            <span className={`ml-auto px-2 py-0.5 rounded text-xs font-bold ${activeTab === 'pending-review' ? 'bg-white/20' : 'bg-amber-100 text-amber-600'}`}>
+              {pendingItems.length}
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
               activeTab === 'users'
@@ -2202,13 +2327,15 @@ const AdminDashboard: React.FC = () => {
                  activeTab === 'notifications' ? '课程通知管理' :
                  activeTab === 'activities' ? '活动公告管理' :
                  activeTab === 'lost-found' ? '失物招领管理' :
+                 activeTab === 'pending-review' ? '待审核内容' :
                  activeTab === 'users' ? '用户管理' : '管理后台'}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
                 {activeTab === 'overview' ? '查看平台运营数据统计' :
                  activeTab === 'notifications' ? `共 ${notifications.length} 条通知` :
                  activeTab === 'activities' ? `共 ${activities.length} 个活动` :
-                 activeTab === 'lost-found' ? `共 ${lostItems.length} 条失物招领` :
+                 activeTab === 'lost-found' ? `共 ${lostItems.length} 条失物招领（仅已审核）` :
+                 activeTab === 'pending-review' ? `共 ${pendingItems.length} 条待审核内容` :
                  '用户管理与批量操作'}
               </p>
             </div>

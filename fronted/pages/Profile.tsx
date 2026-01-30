@@ -10,7 +10,7 @@ import { userNotificationsService } from '../services/userNotifications.service'
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
 
-type TabType = 'posts' | 'notifications' | 'edit-profile' | 'change-password';
+type TabType = 'posts' | 'notifications' | 'edit-profile' | 'privacy-settings' | 'change-password';
 
 const Profile: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
@@ -35,7 +35,7 @@ const Profile: React.FC = () => {
   // Handle tab from URL params
   useEffect(() => {
     const tab = searchParams.get('tab') as TabType;
-    if (tab && ['posts', 'notifications', 'edit-profile', 'change-password'].includes(tab)) {
+    if (tab && ['posts', 'notifications', 'edit-profile', 'privacy-settings', 'change-password'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -54,6 +54,14 @@ const Profile: React.FC = () => {
     old_password: '',
     new_password: '',
     confirm_password: '',
+  });
+
+  // Privacy settings form state
+  const [privacyForm, setPrivacyForm] = useState({
+    show_name_in_lost_item: user?.showNameInLostItem ?? true,
+    show_avatar_in_lost_item: user?.showAvatarInLostItem ?? true,
+    show_email_in_lost_item: user?.showEmailInLostItem ?? false,
+    show_phone_in_lost_item: user?.showPhoneInLostItem ?? false,
   });
 
   // Load user's published content
@@ -113,6 +121,12 @@ const Profile: React.FC = () => {
         avatar: user.avatar || '',
       });
       setAvatarPreview(user.avatar || '');
+      setPrivacyForm({
+        show_name_in_lost_item: user.showNameInLostItem ?? true,
+        show_avatar_in_lost_item: user.showAvatarInLostItem ?? true,
+        show_email_in_lost_item: user.showEmailInLostItem ?? false,
+        show_phone_in_lost_item: user.showPhoneInLostItem ?? false,
+      });
     }
   }, [user]);
 
@@ -210,6 +224,22 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handlePrivacySave = async () => {
+    if (isSaving) return;
+
+    try {
+      setIsSaving(true);
+      await usersService.updateMe(privacyForm);
+      await refreshUser();
+      showToast('隐私设置已更新！', 'success');
+    } catch (error: any) {
+      console.error('Update privacy settings error:', error);
+      showToast(error.message || '更新失败，请稍后重试', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!user) {
     navigate('/login');
     return null;
@@ -219,7 +249,7 @@ const Profile: React.FC = () => {
     major: user.major || '未设置专业',
     bio: user.bio || '这个人很懒，什么都没有写~',
     avatar: user.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCUtxxC52ARabd-8SDwIbftfDI6ffT14_teLYKKqt0ptE9jATkW5nDw_NbrfEMy0oqANCqIxmTTblvFVQ-m1L2OTJm4i6rleTc0SYELXCD-ThiXcS3mjg-PIfVU4ToWOsIm-e5Ebm_la-c6TANnBdV1tu-Fc1Qt7KBZGpKL1kI20f9aJfLVcmUVb8MbSv0dXBprfi3j1sNFeGD-ud5eddnfTks1_UTxE0UvfXAsxAorLfWZoJJxEd8l32iXZ3PlWAzOUj2W7WpAZMSm',
-    isVerified: user.is_verified || false
+    isVerified: user.isVerified || false
   };
 
   return (
@@ -308,6 +338,16 @@ const Profile: React.FC = () => {
                 }`}
               >
                 编辑资料
+              </button>
+              <button
+                onClick={() => setActiveTab('privacy-settings')}
+                className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${
+                  activeTab === 'privacy-settings'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                隐私设置
               </button>
               <button
                 onClick={() => setActiveTab('change-password')}
@@ -592,6 +632,135 @@ const Profile: React.FC = () => {
                       <>
                         <span className="material-symbols-outlined text-lg">save</span>
                         保存更改
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Privacy Settings Tab */}
+            {activeTab === 'privacy-settings' && (
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">privacy_tip</span>
+                  隐私设置
+                </h3>
+
+                <p className="text-sm text-slate-600">
+                  控制在失物招领页面显示哪些个人信息。关闭后，其他用户将无法看到对应信息。
+                </p>
+
+                <div className="space-y-4">
+                  {/* Show Name */}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/40 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <span className="material-symbols-outlined">person</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">显示姓名</p>
+                        <p className="text-xs text-slate-500">在失物招领中显示您的姓名</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setPrivacyForm({ ...privacyForm, show_name_in_lost_item: !privacyForm.show_name_in_lost_item })}
+                      className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                        privacyForm.show_name_in_lost_item ? 'bg-primary' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`absolute top-1 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                        privacyForm.show_name_in_lost_item ? 'translate-x-5' : 'translate-x-1'
+                      }`}></span>
+                    </button>
+                  </div>
+
+                  {/* Show Avatar */}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/40 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                        <span className="material-symbols-outlined">account_circle</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">显示头像</p>
+                        <p className="text-xs text-slate-500">在失物招领中显示您的头像</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setPrivacyForm({ ...privacyForm, show_avatar_in_lost_item: !privacyForm.show_avatar_in_lost_item })}
+                      className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                        privacyForm.show_avatar_in_lost_item ? 'bg-primary' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`absolute top-1 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                        privacyForm.show_avatar_in_lost_item ? 'translate-x-5' : 'translate-x-1'
+                      }`}></span>
+                    </button>
+                  </div>
+
+                  {/* Show Email */}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/40 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                        <span className="material-symbols-outlined">email</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">显示邮箱</p>
+                        <p className="text-xs text-slate-500">允许他人通过邮箱联系您</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setPrivacyForm({ ...privacyForm, show_email_in_lost_item: !privacyForm.show_email_in_lost_item })}
+                      className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                        privacyForm.show_email_in_lost_item ? 'bg-primary' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`absolute top-1 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                        privacyForm.show_email_in_lost_item ? 'translate-x-5' : 'translate-x-1'
+                      }`}></span>
+                    </button>
+                  </div>
+
+                  {/* Show Phone */}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/40 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+                        <span className="material-symbols-outlined">phone</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">显示手机号</p>
+                        <p className="text-xs text-slate-500">允许他人通过手机联系您</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setPrivacyForm({ ...privacyForm, show_phone_in_lost_item: !privacyForm.show_phone_in_lost_item })}
+                      className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                        privacyForm.show_phone_in_lost_item ? 'bg-primary' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`absolute top-1 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                        privacyForm.show_phone_in_lost_item ? 'translate-x-5' : 'translate-x-1'
+                      }`}></span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end pt-4 border-t border-slate-100">
+                  <button
+                    onClick={handlePrivacySave}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-8 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        保存中...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-lg">save</span>
+                        保存设置
                       </>
                     )}
                   </button>

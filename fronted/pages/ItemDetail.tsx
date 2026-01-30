@@ -183,7 +183,14 @@ const ItemDetail: React.FC = () => {
             </div>
 
             <div className="mt-auto">
-              <button className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-3.5 text-white shadow-lg hover:-translate-y-0.5 transition-all duration-200 w-full">
+              <button
+                onClick={() => {
+                  if (item.publisher) {
+                    navigate(`/profile/${item.publisher.id}`);
+                  }
+                }}
+                className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-3.5 text-white shadow-lg hover:-translate-y-0.5 transition-all duration-200 w-full"
+              >
                 <div className="flex items-center justify-center gap-2">
                   <span className="material-symbols-outlined">mail</span>
                   <span className="font-bold tracking-wide">

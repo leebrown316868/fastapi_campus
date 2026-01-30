@@ -41,6 +41,17 @@ async def get_latest_feed(
     )
     activities = activity_result.scalars().all()
 
+    # Update activity statuses to ensure they're current
+    status_updated = False
+    for activity in activities:
+        new_status = activity.calculate_status()
+        if activity.status != new_status:
+            activity.status = new_status
+            status_updated = True
+
+    if status_updated:
+        await db.commit()
+
     # 获取最新失物招领
     lost_result = await db.execute(
         select(LostItem)
@@ -67,11 +78,20 @@ async def get_latest_feed(
 
     # 添加活动
     for activity in activities:
+        # Status colors
+        status_colors = {
+            "进行中": "bg-blue-100 text-blue-700",
+            "已结束": "bg-slate-100 text-slate-700",
+            "报名中": "bg-emerald-100 text-emerald-700",
+            "报名截止": "bg-amber-100 text-amber-700",
+            "即将开始报名": "bg-purple-100 text-purple-700",
+        }
+
         feed_items.append({
             "id": f"activity-{activity.id}",
             "type": "activity",
-            "tag": activity.category,
-            "tag_color": "bg-emerald-100 text-emerald-700",
+            "tag": activity.status,  # Show current status instead of category
+            "tag_color": status_colors.get(activity.status, "bg-emerald-100 text-emerald-700"),
             "title": activity.title,
             "description": activity.description[:100] + "..." if len(activity.description) > 100 else activity.description,
             "created_at": activity.created_at.isoformat(),

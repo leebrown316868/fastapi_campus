@@ -28,6 +28,11 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = None
     phone: Optional[str] = None
     avatar: Optional[str] = None
+    # Privacy settings
+    show_name_in_lost_item: Optional[bool] = None
+    show_avatar_in_lost_item: Optional[bool] = None
+    show_email_in_lost_item: Optional[bool] = None
+    show_phone_in_lost_item: Optional[bool] = None
 
 
 class PasswordUpdate(BaseModel):
@@ -47,6 +52,11 @@ class UserResponse(UserBase):
     phone: Optional[str] = None
     is_active: bool
     is_verified: bool
+    # Privacy settings
+    show_name_in_lost_item: bool = True
+    show_avatar_in_lost_item: bool = True
+    show_email_in_lost_item: bool = False
+    show_phone_in_lost_item: bool = False
     created_at: datetime
 
     class Config:

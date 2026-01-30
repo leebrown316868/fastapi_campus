@@ -101,6 +101,18 @@ const Publish: React.FC = () => {
     images: [] as string[],
   });
 
+  // 失物招领类别定义
+  const lostItemCategories = [
+    { value: 'electronics', label: '电子数码', icon: 'devices', color: 'blue' },
+    { value: 'cards', label: '证件卡片', icon: 'badge', color: 'purple' },
+    { value: 'books', label: '书籍文具', icon: 'menu_book', color: 'green' },
+    { value: 'daily', label: '生活用品', icon: 'coffee', color: 'amber' },
+    { value: 'clothing', label: '服饰配件', icon: 'checkroom', color: 'pink' },
+    { value: 'sports', label: '运动器材', icon: 'sports_basketball', color: 'red' },
+    { value: 'keys', label: '钥匙', icon: 'key', color: 'slate' },
+    { value: 'other', label: '其他', icon: 'more_horiz', color: 'gray' },
+  ];
+
   // 权限检查
   if (!user) {
     navigate('/login');
@@ -702,6 +714,44 @@ const Publish: React.FC = () => {
                   value={lostForm.title}
                   onChange={(e) => setLostForm({ ...lostForm, title: e.target.value })}
                 />
+              </div>
+            </div>
+
+            {/* 物品类别选择 */}
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-slate-900">物品类别 <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {lostItemCategories.map((cat) => {
+                  const colorClasses = {
+                    blue: 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100',
+                    purple: 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100',
+                    green: 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100',
+                    amber: 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
+                    pink: 'bg-pink-50 text-pink-600 border-pink-200 hover:bg-pink-100',
+                    red: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100',
+                    slate: 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100',
+                    gray: 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100',
+                  };
+                  const isSelected = lostForm.category === cat.value;
+
+                  return (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setLostForm({ ...lostForm, category: cat.value })}
+                      className={`flex flex-col items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all font-bold text-xs ${
+                        isSelected
+                          ? colorClasses[cat.color as keyof typeof colorClasses].replace(' hover:bg-', '').replace('/50', '/100')
+                          : 'bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined text-2xl ${isSelected ? '' : 'text-slate-400'}`}>
+                        {cat.icon}
+                      </span>
+                      <span>{cat.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

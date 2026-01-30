@@ -23,12 +23,13 @@ export interface LostItem {
 
 export const lostItemsService = {
   /**
-   * Get all lost items (public)
+   * Get all lost items (public - but requires auth to see user's own items)
    */
   async getAll(params?: {
     type?: 'lost' | 'found';
     category?: string;
     created_by?: number;
+    review_status?: 'pending' | 'approved' | 'rejected';
     skip?: number;
     limit?: number;
   }): Promise<LostItem[]> {
@@ -36,20 +37,23 @@ export const lostItemsService = {
     if (params?.type) queryParams.append('type', params.type);
     if (params?.category) queryParams.append('category', params.category);
     if (params?.created_by !== undefined) queryParams.append('created_by', params.created_by.toString());
+    if (params?.review_status) queryParams.append('review_status', params.review_status);
     if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString());
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
 
     const queryString = queryParams.toString();
-    return apiClient.getPublic<LostItem[]>(
+    // Use authenticated request so backend can identify the user
+    return apiClient.get<LostItem[]>(
       `/api/lost-items${queryString ? `?${queryString}` : ''}`
     );
   },
 
   /**
-   * Get lost item by ID (public)
+   * Get lost item by ID (public - but requires auth to see user's own items)
    */
   async getById(id: number): Promise<LostItem> {
-    return apiClient.getPublic<LostItem>(`/api/lost-items/${id}`);
+    // Use authenticated request so backend can identify the user
+    return apiClient.get<LostItem>(`/api/lost-items/${id}`);
   },
 
   /**

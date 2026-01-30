@@ -76,20 +76,11 @@ const Activities: React.FC = () => {
 
       <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
         {/* Header */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mb-8">
           <div>
             <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">活动公告</h1>
             <p className="text-lg text-slate-600 mt-1">发现校园里的精彩时刻，丰富你的大学生活。</p>
           </div>
-          {user?.role === 'admin' && (
-            <button
-              onClick={() => navigate('/publish?type=activity')}
-              className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all"
-            >
-              <span className="material-symbols-outlined">add_circle</span>
-              发布活动
-            </button>
-          )}
         </div>
 
         {/* Filters */}

@@ -41,8 +41,11 @@ export interface LostItem {
   images: string[];
   tags: string[];
   publisher: {
-    name: string;
-    avatar: string;
+    id: number;
+    name?: string | null;
+    avatar?: string | null;
+    email?: string | null;
+    phone?: string | null;
   };
 }
 
@@ -53,6 +56,15 @@ export interface User {
   name: string;
   role: 'user' | 'admin' | 'publisher';
   avatar?: string;
+  major?: string;
+  bio?: string;
+  phone?: string;
+  isVerified?: boolean;
+  // Privacy settings
+  showNameInLostItem?: boolean;
+  showAvatarInLostItem?: boolean;
+  showEmailInLostItem?: boolean;
+  showPhoneInLostItem?: boolean;
 }
 
 export interface AuthContextType {
