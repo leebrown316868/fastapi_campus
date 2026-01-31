@@ -8,6 +8,7 @@ services:
     environment:
       DATABASE_URL: sqlite+aiosqlite:////data/campus_hub.db
       SECRET_KEY: 9f7d6c2a1b4e8f0c3d5a7e9b1c6f8a2d4e0b7c9a5f1d3e8b6a0c2f4d7e9a1b3c
+      CORS_ORIGINS: '["http://101.34.89.97:8080"]'
       DEBUG: "false"
     volumes:
       - backend_data:/data
