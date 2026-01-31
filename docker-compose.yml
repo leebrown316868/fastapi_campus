@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: campus-hub-backend
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/campus_hub.db
+      SECRET_KEY: 9f7d6c2a1b4e8f0c3d5a7e9b1c6f8a2d4e0b7c9a5f1d3e8b6a0c2f4d7e9a1b3c
+      DEBUG: "false"
+    volumes:
+      - backend_data:/data
+      - backend_uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./fronted
+      args:
+        VITE_API_URL: http://101.34.89.97:8000
+    container_name: campus-hub-frontend
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+  backend_uploads:
