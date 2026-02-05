@@ -20,8 +20,6 @@ services:
   frontend:
     build:
       context: ./fronted
-      args:
-        VITE_API_URL: http://101.34.89.97:8000
     container_name: campus-hub-frontend
     ports:
       - "8080:8080"

@@ -26,7 +26,11 @@ npm run preview      # Preview production build
 cd backend
 pip install -r requirements.txt    # Install dependencies
 python init_db.py                  # Initialize database with test users
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000    # Start dev server (http://localhost:8000)
+python add_privacy_columns.py      # Migrate database for privacy settings (if needed)
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000    # Start dev server
+
+# Docker deployment
+docker-compose up --build    # Build and start all services
 ```
 
 **Test Accounts (created by init_db.py):**
@@ -41,9 +45,15 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000    # Start dev se
 
 Frontend uses API service layer in `services/` directory to communicate with FastAPI backend. All authenticated requests include JWT token via `Authorization: Bearer <token>` header.
 
-**API Base URL:** Configured via `VITE_API_URL` in `fronted/.env` (default: `http://localhost:8000`)
+**API Base URL:** Configured via `VITE_API_URL` in `fronted/.env` (default: `/` for proxy, or `http://localhost:8000` for direct access)
+
+**Service Layer:**
+- `services/api.ts` - Base API client with token management, auth error handling, file download support
+- `services/feed.service.ts` - Aggregated feed API
+- `services/*.service.ts` - Domain-specific API clients
 
 **All content pages are integrated with real APIs:**
+- `Home.tsx` → `feedService.getLatest()` (aggregated feed)
 - `Notifications.tsx` → `notificationsService.getAll()`
 - `Activities.tsx` → `activitiesService.getAll({ category, status })`
 - `LostAndFound.tsx` → `lostItemsService.getAll({ type, category })`
@@ -88,31 +98,112 @@ DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
 
 ```python
 # CORRECT order in main.py:
-app.include_router(user_notifications.router)      # /api/notifications/me (specific)
-app.include_router(notifications.router)            # /api/notifications/{id} (parameterized)
-app.include_router(activity_registrations.router)   # /api/activities/my-registrations (specific)
-app.include_router(activities.router)               # /api/activities/{id} (parameterized)
+app.include_router(feed.router)                       # /api/feed/latest (specific)
+app.include_router(user_notifications.router)         # /api/notifications/me (specific)
+app.include_router(notifications.router)               # /api/notifications/{id} (parameterized)
+app.include_router(activity_registrations.router)      # /api/activities/my-registrations (specific)
+app.include_router(activities.router)                  # /api/activities/{id} (parameterized)
 ```
 
-**Rule:** Routes with literal segments (like `/me`, `/my-registrations`) must be defined before routes with path parameters (like `/{id}`), otherwise FastAPI will try to parse the literal as a parameter and return 422.
+**Rule:** Routes with literal segments (like `/me`, `/my-registrations`, `/latest`) must be defined before routes with path parameters (like `/{id}`), otherwise FastAPI will try to parse the literal as a parameter and return 422.
+
+### Feed API Pattern
+
+The `/api/feed/latest` endpoint aggregates content from multiple sources:
+
+**Backend (`app/api/feed.py`):**
+- Queries latest notifications, activities, and lost items
+- Normalizes to unified `FeedItem` format with `type`, `tag`, `tag_color`
+- Calculates relative time display (刚刚, X分钟前, X小时前, X天前)
+- Updates activity status automatically on fetch
+
+**Frontend (`services/feed.service.ts`):**
+```typescript
+interface FeedItem {
+  id: string;              // "notification-{id}", "activity-{id}", "lost-{id}"
+  type: 'notification' | 'activity' | 'lost_item';
+  tag: string;             // Display tag (重要, 通知, 进行中, 遗失, etc.)
+  tag_color: string;       // Tailwind color classes
+  title: string;
+  description: string;
+  time: string;            // Relative time
+  created_at: string;
+  link_url: string;        // Navigation path
+}
+```
+
+### Privacy Settings Architecture
+
+Users can control what personal information is displayed in lost & found listings:
+
+**4 Privacy Settings (User model):**
+| Field | Default | Description |
+|-------|---------|-------------|
+| `show_name_in_lost_item` | true | Show name in lost item listings |
+| `show_avatar_in_lost_item` | true | Show avatar in lost item listings |
+| `show_email_in_lost_item` | false | Allow others to see email |
+| `show_phone_in_lost_item` | false | Allow others to see phone |
+
+**Display Logic Pattern:**
+```tsx
+// Viewing own profile - show all information
+const isOwnProfile = currentUser?.id === user.id.toString();
+
+// Name: hide if disabled and not own profile
+{isOwnProfile || user.show_name_in_lost_item !== false ? user.name : '匿名用户'}
+
+// Contact info: show "未公开" if hidden and not own profile
+{!isOwnProfile && !user.show_phone_in_lost_item ? (
+  <div className="opacity-50">🔒 未公开</div>
+) : user.phone ? (
+  <div>{user.phone}</div>
+) : null}
+```
+
+**Database Migration:**
+```bash
+cd backend
+python add_privacy_columns.py  # Run if privacy columns don't exist
+```
+
+### Static File Serving
+
+Backend serves uploaded images via static files mount:
+```python
+# main.py
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+```
+
+Access images at: `http://localhost:8000/uploads/{filename}`
+
+### Vite Configuration
+
+**Path Aliases (`vite.config.ts`):**
+- `@` → project root (`fronted/`)
+
+**Development Server:**
+- Port: 3000
+- Host: 0.0.0.0 (accessible from network)
 
 ## Project Structure
 
 ```
 hub-claudecode/
 ├── fronted/                        # React frontend
-│   ├── pages/                      # Page components
+│   ├── pages/                      # Page components (lazy-loaded)
 │   │   ├── Login.tsx              # Student login (no admin link)
 │   │   ├── AdminLogin.tsx         # Admin login (separate, unlinked)
-│   │   ├── Home.tsx               # Homepage with news
+│   │   ├── Home.tsx               # Homepage with feed
 │   │   ├── Notifications.tsx      # ✅ API integrated (read)
 │   │   ├── Activities.tsx         # ✅ API integrated (read)
 │   │   ├── LostAndFound.tsx       # ✅ API integrated (read)
 │   │   ├── Publish.tsx            # ✅ API integrated (create)
-│   │   ├── Profile.tsx            # ✅ API integrated (update, password change)
+│   │   ├── Profile.tsx            # ✅ API integrated (update, password change, privacy)
+│   │   ├── UserProfile.tsx        # Other user's profile (privacy-aware)
 │   │   └── AdminDashboard.tsx     # ✅ API integrated (full CRUD)
 │   ├── services/                   # API service layer
 │   │   ├── api.ts                 # Base API client, token management
+│   │   ├── feed.service.ts        # Aggregated feed
 │   │   ├── auth.service.ts        # Authentication API
 │   │   ├── notifications.service.ts
 │   │   ├── activities.service.ts
@@ -124,23 +215,29 @@ hub-claudecode/
 │   ├── contexts/
 │   │   └── AuthContext.tsx         # Auth state with API integration
 │   ├── components/
-│   │   ├── Layout.tsx              # Main layout (no admin link in dropdown)
+│   │   ├── Layout.tsx              # Main layout
 │   │   ├── ProtectedRoute.tsx      # ⭐ Route guard component
 │   │   ├── Toast.tsx               # Toast notifications
 │   │   ├── NotificationBell.tsx    # Notification bell with unread count
-│   │   ├── ImageUpload.tsx         # Single image upload component
-│   │   └── MultiImageUpload.tsx    # Multiple image upload component
+│   │   ├── ImageUpload.tsx         # Single image upload
+│   │   └── MultiImageUpload.tsx    # Multiple image upload
 │   ├── types.ts                    # TypeScript types
-│   └── constants.tsx               # Legacy mock data (deprecated)
+│   ├── vite.config.ts              # Vite configuration
+│   ├── Dockerfile                  # Frontend Docker build
+│   └── nginx.conf                  # Nginx config for Docker
 │
 └── backend/                        # FastAPI backend
     ├── app/
     │   ├── api/                    # API routes
     │   │   ├── auth.py             # POST /api/auth/login, /logout
-    │   │   ├── users.py            # GET/PATCH /api/users/me
+    │   │   ├── users.py            # GET/PATCH /api/users/me, GET /api/users/{id}
     │   │   ├── notifications.py   # CRUD for notifications
     │   │   ├── activities.py      # CRUD for activities
-    │   │   ├── lost_items.py      # CRUD for lost items
+    │   │   ├── lost_items.py      # CRUD for lost items (privacy-aware)
+    │   │   ├── feed.py            # GET /api/feed/latest
+    │   │   ├── user_notifications.py  # User-specific notifications
+    │   │   ├── activity_registrations.py  # Activity registrations
+    │   │   ├── uploads.py         # POST /api/uploads/images
     │   │   └── deps.py            # get_current_user, get_current_admin
     │   ├── core/
     │   │   ├── config.py          # Settings from environment
@@ -148,7 +245,7 @@ hub-claudecode/
     │   ├── db/
     │   │   └── database.py        # Async session factory, init_db
     │   ├── models/                # SQLAlchemy models
-    │   │   ├── user.py
+    │   │   ├── user.py            # With privacy fields
     │   │   ├── notification.py
     │   │   ├── activity.py
     │   │   └── lost_item.py
@@ -159,7 +256,10 @@ hub-claudecode/
     │       └── lost_item.py
     ├── main.py                     # FastAPI app with CORS and routers
     ├── init_db.py                  # Create tables and test users + sample data
-    └── campus_hub.db               # SQLite database
+    ├── add_privacy_columns.py      # Database migration for privacy settings
+    ├── .env.example                # Environment variables template
+    ├── Dockerfile                  # Backend Docker build
+    └── campus_hub.db               # SQLite database (created at runtime)
 ```
 
 ## User Roles & Permissions
@@ -176,12 +276,13 @@ hub-claudecode/
 /login                → Student login page
 /admin/login          → Admin login page (not publicly linked)
 /*                    → Layout wrapper
-  /home               → Homepage
+  /home               → Homepage with feed
   /notifications      → Course notifications (API integrated)
   /activities         → Activity announcements (API integrated)
   /lost-and-found     → Lost & found (API integrated)
   /publish            → Publishing page (role-based)
   /profile            → User profile
+  /user/:userId       → Other user's profile (privacy-aware)
   /admin              → Admin dashboard (ProtectedRoute + backend deps)
 ```
 
@@ -194,6 +295,7 @@ hub-claudecode/
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
+| GET | `/api/feed/latest` | No | Get latest aggregated feed (limit query param) |
 | POST | `/api/auth/login` | No | Login with email OR student_id |
 | POST | `/api/auth/logout` | No | Clear session |
 | GET | `/api/notifications` | No | List all notifications |
@@ -208,7 +310,8 @@ hub-claudecode/
 | POST | `/api/lost-items` | User+ | Create lost item |
 | DELETE | `/api/lost-items/{id}` | Admin | Delete lost item |
 | GET | `/api/users/me` | Yes | Get current user profile |
-| PATCH | `/api/users/me` | Yes | Update profile |
+| GET | `/api/users/{user_id}` | No | Get public user profile (privacy-aware) |
+| PATCH | `/api/users/me` | Yes | Update profile (including privacy settings) |
 | POST | `/api/users/me/change-password` | Yes | Change password |
 | GET | `/api/notifications/me` | Yes | Get current user's personal notifications |
 | GET | `/api/notifications/me/unread-count` | Yes | Get unread notification count |
@@ -256,13 +359,23 @@ import { NotificationBell } from '../components/NotificationBell';
 ## Environment Variables
 
 **Backend (.env):**
-- `DATABASE_URL` - SQLite or PostgreSQL connection string
-- `SECRET_KEY` - JWT signing key (change in production)
-- `ACCESS_TOKEN_EXPIRE_MINUTES` - Token lifetime (default: 1440)
-- `CORS_ORIGINS` - Allowed frontend origins (include port 3000)
+```bash
+DATABASE_URL=sqlite+aiosqlite:///./campus_hub.db
+SECRET_KEY=your-secret-key-change-this-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
+```
 
 **Frontend (.env):**
-- `VITE_API_URL` - Backend API base URL (default: `http://localhost:8000`)
+```bash
+VITE_API_URL=/  # Uses relative path for proxy, or http://localhost:8000 for direct access
+```
+
+**Docker (docker-compose.yml):**
+- Backend: SQLite database in `/data` volume, uploads in `/app/uploads` volume
+- Frontend: Nginx serving static files on port 8080
+- Environment variables override defaults for production
 
 ## Known Issues & Solutions
 
@@ -270,181 +383,10 @@ import { NotificationBell } from '../components/NotificationBell';
 
 **FastAPI Annotated Depends conflicts:** Each API file redefines type aliases internally (see Architecture section)
 
-**FastAPI route conflicts (422 errors):** Specific routes like `/me` or `/my-registrations` must be registered before parameterized routes like `/{id}` in main.py (see Route Ordering Pattern)
+**FastAPI route conflicts (422 errors):** Specific routes like `/me`, `/my-registrations`, `/latest` must be registered before parameterized routes like `/{id}` in main.py (see Route Ordering Pattern)
 
 **Windows console Unicode errors:** `init_db.py` sets UTF-8 encoding wrapper for win32
 
-**CORS errors:** Ensure `CORS_ORIGINS` includes `http://localhost:3000`
- ## Summary
+**CORS errors:** Ensure `CORS_ORIGINS` includes development ports (3000, 5173, 5174)
 
-  完成了 Campus Hub 项目的全栈 API 集成，所有核心功能均已接入后端。
-
-  ## What Was Done
-
-  ### Phase 1: 内容页面 API 集成
-  - `Notifications.tsx` → GET /api/notifications
-  - `Activities.tsx` → GET /api/activities (with filters)
-  - `LostAndFound.tsx` → GET /api/lost-items (with filters)
-
-  ### Phase 2: 发布功能 API 集成
-  - `Publish.tsx` → POST /api/notifications (admin only)
-  - `Publish.tsx` → POST /api/activities (admin only)
-  - `Publish.tsx` → POST /api/lost-items (user+)
-  - 表单验证和错误处理
-
-  ### Phase 3: 个人资料 API 集成
-  - `Profile.tsx` → PATCH /api/users/me (update profile)
-  - `Profile.tsx` → POST /api/users/me/change-password
-  - "我的发布"列表加载 (按 created_by 筛选)
-
-  ### Phase 4: 管理后台 CRUD 优化
-  - `AdminDashboard.tsx` → PUT/DELETE /api/notifications/{id}
-  - `AdminDashboard.tsx` → PUT/DELETE /api/activities/{id}
-  - `AdminDashboard.tsx` → DELETE /api/lost-items/{id}
-  - 编辑模态框 UI 和保存逻辑
-
-  ### Phase 5: 安全和配置
-  - `ProtectedRoute.tsx` 路由守卫组件
-  - 移除学生登录页的管理员入口链接
-  - 移除用户下拉菜单的管理后台选项
-  - 创建 `backend/.env` 文件
-  - 修复 CORS 配置
-
-  ## Architecture Patterns
-
-  ### 路由守卫模式
-  ```tsx
-  <ProtectedRoute requireAdmin={true}>
-    <AdminDashboard />
-  </ProtectedRoute>
-  ```
-
-  ### FastAPI 依赖注入
-  ```python
-  # 每个文件内部重新定义类型别名
-  CurrentUser = Annotated[User, Depends(get_current_user)]
-  CurrentAdmin = Annotated[User, Depends(get_current_admin)]
-  ```
-
-  ## Test Accounts
-  ┌─────────┬────────────────────┬────────────┐
-  │  角色   │        邮箱        │    密码    │
-  ├─────────┼────────────────────┼────────────┤
-  │ Admin   │ admin@campus.edu   │ admin123   │
-  ├─────────┼────────────────────┼────────────┤
-  │ Student │ student@campus.edu │ student123 │
-  └─────────┴────────────────────┴────────────┘
-
----
-
-## Session Handoff - 2026-01-30
-
-### 1. Current Core Objective
-完成了失物招领隐私设置功能，允许用户控制个人信息在失物招领页面和用户资料卡片的显示。
-
-### 2. Completed Work
-
-**New Files Created:**
-- `backend/add_privacy_columns.py` - 数据库迁移脚本，添加隐私设置字段
-
-**Modified Files:**
-- `backend/app/models/user.py` - 添加4个隐私设置字段（show_name_in_lost_item, show_avatar_in_lost_item, show_email_in_lost_item, show_phone_in_lost_item）
-- `backend/app/schemas/user.py` - 更新UserUpdate和UserResponse包含隐私设置
-- `backend/app/schemas/lost_item.py` - PublisherInfo支持可选字段（name, avatar, email, phone）
-- `backend/app/api/lost_items.py` - 根据用户隐私设置过滤发布者信息
-- `backend/app/api/users.py` - GET /api/users/{user_id} 改为公开访问
-- `fronted/types.ts` - User和LostItem接口添加隐私字段
-- `fronted/contexts/AuthContext.tsx` - 保存/加载隐私设置到用户状态
-- `fronted/pages/Profile.tsx` - 新增"隐私设置"标签页，开关UI修复（translate-x-1/translate-x-5）
-- `fronted/pages/UserProfile.tsx` - 根据隐私设置和是否是自己的资料选择性显示信息
-- `fronted/pages/ItemDetail.tsx` - 移除联系方式显示，保留跳转用户资料按钮
-- `fronted/pages/LostAndFound.tsx` - 发布者姓名为空时显示"匿名用户"
-
-**Working Flows:**
-1. **隐私设置**：用户可在个人中心控制失物招领中显示哪些信息
-2. **用户资料页面**：
-   - 查看自己的资料：显示所有信息
-   - 查看别人的资料：根据该用户的隐私设置显示对应信息
-   - 隐藏的信息显示带锁图标的"未公开"
-
-### 3. Privacy Settings Details
-
-**4个隐私设置选项：**
-| 设置项 | 默认值 | 说明 |
-|--------|--------|------|
-| show_name_in_lost_item | true | 失物招领中显示姓名 |
-| show_avatar_in_lost_item | true | 失物招领中显示头像 |
-| show_email_in_lost_item | false | 允许他人通过邮箱联系 |
-| show_phone_in_lost_item | false | 允许他人通过手机联系 |
-
-**显示逻辑：**
-```tsx
-// 查看自己的资料 - 显示所有信息
-const isOwnProfile = currentUser?.id === user.id.toString();
-
-// 姓名
-{isOwnProfile || user.show_name_in_lost_item !== false ? user.name : '匿名用户'}
-
-// 头像
-{(isOwnProfile || user.show_avatar_in_lost_item !== false) && user.avatar ? <img /> : initials}
-
-// 手机/邮箱 - 隐藏时显示"未公开"
-{!isOwnProfile && !user.show_phone_in_lost_item ? (
-  <div className="opacity-50">🔒 未公开</div>
-) : user.phone ? (
-  <div>{user.phone}</div>
-) : null}
-```
-
-### 4. Database Migration
-
-**执行状态：** ✅ 已完成
-```bash
-cd backend
-python add_privacy_columns.py
-```
-
-**添加的列：**
-```sql
-ALTER TABLE users ADD COLUMN show_name_in_lost_item BOOLEAN DEFAULT 1;
-ALTER TABLE users ADD COLUMN show_avatar_in_lost_item BOOLEAN DEFAULT 1;
-ALTER TABLE users ADD COLUMN show_email_in_lost_item BOOLEAN DEFAULT 0;
-ALTER TABLE users ADD COLUMN show_phone_in_lost_item BOOLEAN DEFAULT 0;
-```
-
-### 5. Toggle Switch UI Fix
-
-**问题：** 开关白色圆球默认位置在右侧，开启后超出范围
-**解决方案：**
-```tsx
-// 修复前
-translate-x-1 (关闭) / translate-x-6 (开启) ❌
-
-// 修复后
-left-0 translate-x-1 (关闭) / translate-x-5 (开启) ✅
-```
-
-### 6. Environment Variables & Key Values
-| Variable | Value |
-|----------|-------|
-| VITE_API_URL | http://localhost:8000 |
-| Frontend Port | 3000 |
-| Backend Port | 8000 |
-| Database | SQLite (campus_hub.db) |
-
-### 7. Next Actions (Prioritized)
-1. **测试隐私设置：** 验证开关保存和显示逻辑
-2. **完整流程测试：** 从失物招领点击"联系发布者"查看隐私设置效果
-
-### 8. Quick Restart Command
-```bash
-# Terminal 1 - Backend
-cd backend
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Terminal 2 - Frontend
-cd fronted
-npm run dev
-```
-
----
+**Toggle Switch UI:** Use `left-0 translate-x-1` (off) / `translate-x-5` (on) pattern for proper positioning

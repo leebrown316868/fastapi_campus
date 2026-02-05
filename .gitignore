@@ -25,6 +25,7 @@ MANIFEST
 *.sqlite
 *.sqlite3
 .env
+!backend/campus_hub.db
 .venv
 env/
 venv/
