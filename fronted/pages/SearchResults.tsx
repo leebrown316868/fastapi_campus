@@ -1,31 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { notificationsService } from '../services/notifications.service';
-import { activitiesService } from '../services/activities.service';
-import { lostItemsService } from '../services/lostItems.service';
+import { searchService, SearchResultItem } from '../services/search.service';
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
 
-type TabType = 'all' | 'notifications' | 'activities' | 'lost-found';
+type TabType = 'all' | 'notifications' | 'activities' | 'lost-items';
 
 const SearchResults: React.FC = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const [activeTab, setActiveTab] = useState<TabType>('all');
-  const [results, setResults] = useState({
-    notifications: [] as any[],
-    activities: [] as any[],
-    lostItems: [] as any[],
-  });
+  const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [visible, setVisible] = useState(false);
+  const [counts, setCounts] = useState({ notifications: 0, activities: 0, lost_items: 0 });
 
   useEffect(() => {
     setVisible(true);
   }, []);
 
   useEffect(() => {
-    const searchAll = async () => {
+    const doSearch = async () => {
       if (!query.trim()) {
         setIsLoading(false);
         return;
@@ -33,42 +28,9 @@ const SearchResults: React.FC = () => {
 
       try {
         setIsLoading(true);
-
-        // Search in all three sources
-        const [notificationsData, activitiesData, lostItemsData] = await Promise.all([
-          notificationsService.getAll(),
-          activitiesService.getAll(),
-          lostItemsService.getAll(),
-        ]);
-
-        // Filter results based on query
-        const searchLower = query.toLowerCase();
-
-        const filteredNotifications = notificationsData.filter(item =>
-          item.title.toLowerCase().includes(searchLower) ||
-          item.content.toLowerCase().includes(searchLower) ||
-          item.course.toLowerCase().includes(searchLower)
-        );
-
-        const filteredActivities = activitiesData.filter(item =>
-          item.title.toLowerCase().includes(searchLower) ||
-          item.description.toLowerCase().includes(searchLower) ||
-          item.category.toLowerCase().includes(searchLower) ||
-          item.location.toLowerCase().includes(searchLower)
-        );
-
-        const filteredLostItems = lostItemsData.filter(item =>
-          item.title.toLowerCase().includes(searchLower) ||
-          item.description.toLowerCase().includes(searchLower) ||
-          item.category.toLowerCase().includes(searchLower) ||
-          item.location.toLowerCase().includes(searchLower)
-        );
-
-        setResults({
-          notifications: filteredNotifications,
-          activities: filteredActivities,
-          lostItems: filteredLostItems,
-        });
+        const data = await searchService.search(query, activeTab);
+        setResults(data.results);
+        setCounts(data.counts);
       } catch (error) {
         showToast('搜索失败', 'error');
         console.error('Search error:', error);
@@ -76,20 +38,32 @@ const SearchResults: React.FC = () => {
         setIsLoading(false);
       }
     };
-
-    searchAll();
-  }, [query]);
+    doSearch();
+  }, [query, activeTab]);
 
   const getTotalCount = () => {
     if (activeTab === 'all') {
-      return results.notifications.length + results.activities.length + results.lostItems.length;
+      return counts.notifications + counts.activities + counts.lost_items;
     }
-    return results[activeTab]?.length || 0;
+    const key = activeTab === 'lost-items' ? 'lost_items' : activeTab;
+    return counts[key as keyof typeof counts] || 0;
+  };
+
+  const getActiveCount = () => {
+    return results.length;
+  };
+
+  const getItemLink = (item: SearchResultItem) => {
+    switch (item.type) {
+      case 'notification': return '/notifications';
+      case 'activity': return `/activities/${item.id}`;
+      case 'lost_item': return `/lost-and-found/${item.id}`;
+      default: return '/';
+    }
   };
 
   return (
     <div className="relative min-h-screen">
-      {/* Dynamic Dotted Background */}
       <DottedBackground />
 
       <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
@@ -143,7 +117,7 @@ const SearchResults: React.FC = () => {
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
             }`}
           >
-            课程通知 ({results.notifications.length})
+            课程通知 ({counts.notifications})
           </button>
           <button
             onClick={() => setActiveTab('activities')}
@@ -153,17 +127,17 @@ const SearchResults: React.FC = () => {
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
             }`}
           >
-            活动公告 ({results.activities.length})
+            活动公告 ({counts.activities})
           </button>
           <button
-            onClick={() => setActiveTab('lost-found')}
+            onClick={() => setActiveTab('lost-items')}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'lost-found'
+              activeTab === 'lost-items'
                 ? 'bg-primary text-white shadow-lg shadow-primary/25'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
             }`}
           >
-            失物招领 ({results.lostItems.length})
+            失物招领 ({counts.lost_items})
           </button>
         </div>
 
@@ -178,7 +152,7 @@ const SearchResults: React.FC = () => {
             <span className="material-symbols-outlined text-6xl text-slate-300">search</span>
             <p className="mt-4 text-slate-500 font-bold">请输入搜索关键词</p>
           </div>
-        ) : getTotalCount() === 0 ? (
+        ) : getActiveCount() === 0 ? (
           <div className="text-center py-16">
             <span className="material-symbols-outlined text-6xl text-slate-300">search_off</span>
             <p className="mt-4 text-slate-500 font-bold">未找到相关结果</p>
@@ -186,18 +160,18 @@ const SearchResults: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Notifications Results */}
-            {(activeTab === 'all' || activeTab === 'notifications') && results.notifications.length > 0 && (
+            {/* Notifications */}
+            {(activeTab === 'all' || activeTab === 'notifications') && results.filter(r => r.type === 'notification').length > 0 && (
               <section>
                 <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-blue-500">menu_book</span>
-                  课程通知 ({results.notifications.length})
+                  课程通知 ({results.filter(r => r.type === 'notification').length})
                 </h2>
                 <div className="space-y-4">
-                  {results.notifications.map((item) => (
+                  {results.filter(r => r.type === 'notification').map((item) => (
                     <Link
-                      key={item.id}
-                      to="/notifications"
+                      key={`${item.type}-${item.id}`}
+                      to={getItemLink(item)}
                       className="block glass-card p-5 rounded-xl hover:bg-white/90 transition-all group"
                     >
                       <div className="flex items-start gap-4">
@@ -206,13 +180,13 @@ const SearchResults: React.FC = () => {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold text-blue-600 uppercase">{item.course}</span>
-                            {item.is_important && (
+                            <span className="text-xs font-bold text-blue-600 uppercase">{item.extra.course}</span>
+                            {item.extra.is_important && (
                               <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-xs font-bold">重要</span>
                             )}
                           </div>
                           <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{item.title}</h3>
-                          <p className="text-sm text-slate-600 mt-1 line-clamp-2">{item.content}</p>
+                          <p className="text-sm text-slate-600 mt-1 line-clamp-2">{item.description}</p>
                         </div>
                       </div>
                     </Link>
@@ -221,29 +195,29 @@ const SearchResults: React.FC = () => {
               </section>
             )}
 
-            {/* Activities Results */}
-            {(activeTab === 'all' || activeTab === 'activities') && results.activities.length > 0 && (
+            {/* Activities */}
+            {(activeTab === 'all' || activeTab === 'activities') && results.filter(r => r.type === 'activity').length > 0 && (
               <section>
                 <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-emerald-500">campaign</span>
-                  活动公告 ({results.activities.length})
+                  活动公告 ({results.filter(r => r.type === 'activity').length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {results.activities.map((item) => (
+                  {results.filter(r => r.type === 'activity').map((item) => (
                     <Link
-                      key={item.id}
-                      to={`/activities/${item.id}`}
+                      key={`${item.type}-${item.id}`}
+                      to={getItemLink(item)}
                       className="glass-card rounded-xl overflow-hidden group hover:bg-white/90 transition-all"
                     >
                       <div className="relative aspect-video">
                         <img
-                          src={item.image}
+                          src={item.extra.image}
                           alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute top-3 left-3">
                           <span className="px-3 py-1 rounded-lg bg-white/90 backdrop-blur-md text-slate-900 text-xs font-bold">
-                            {item.category}
+                            {item.extra.category}
                           </span>
                         </div>
                       </div>
@@ -251,7 +225,7 @@ const SearchResults: React.FC = () => {
                         <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors mb-2">{item.title}</h3>
                         <div className="flex items-center gap-2 text-sm text-slate-500">
                           <span className="material-symbols-outlined text-base">schedule</span>
-                          {item.date}
+                          {item.extra.date}
                         </div>
                       </div>
                     </Link>
@@ -260,31 +234,31 @@ const SearchResults: React.FC = () => {
               </section>
             )}
 
-            {/* Lost & Found Results */}
-            {(activeTab === 'all' || activeTab === 'lost-found') && results.lostItems.length > 0 && (
+            {/* Lost & Found */}
+            {(activeTab === 'all' || activeTab === 'lost-items') && results.filter(r => r.type === 'lost_item').length > 0 && (
               <section>
                 <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-amber-500">search</span>
-                  失物招领 ({results.lostItems.length})
+                  失物招领 ({results.filter(r => r.type === 'lost_item').length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {results.lostItems.map((item) => (
+                  {results.filter(r => r.type === 'lost_item').map((item) => (
                     <Link
-                      key={item.id}
-                      to={`/lost-and-found/${item.id}`}
+                      key={`${item.type}-${item.id}`}
+                      to={getItemLink(item)}
                       className="glass-card rounded-xl overflow-hidden group hover:bg-white/90 transition-all"
                     >
                       <div className="relative aspect-[4/3]">
                         <img
-                          src={item.images?.[0] || 'https://via.placeholder.com/400x300?text=No+Image'}
+                          src={item.extra.images?.[0] || 'https://via.placeholder.com/400x300?text=No+Image'}
                           alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute top-3 left-3">
                           <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${
-                            item.type === 'lost' ? 'bg-red-500' : 'bg-emerald-500'
+                            item.extra.item_type === 'lost' ? 'bg-red-500' : 'bg-emerald-500'
                           }`}>
-                            {item.type === 'lost' ? '遗失' : '招领'}
+                            {item.extra.item_type === 'lost' ? '遗失' : '招领'}
                           </span>
                         </div>
                       </div>
@@ -292,7 +266,7 @@ const SearchResults: React.FC = () => {
                         <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors mb-2">{item.title}</h3>
                         <div className="flex items-center gap-2 text-sm text-slate-500">
                           <span className="material-symbols-outlined text-base">location_on</span>
-                          {item.location}
+                          {item.extra.location}
                         </div>
                       </div>
                     </Link>

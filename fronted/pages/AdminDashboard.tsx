@@ -6,6 +6,7 @@ import { lostItemsService } from '../services/lostItems.service';
 import { usersService } from '../services/users.service';
 import activityRegistrationsService, { ActivityRegistration } from '../services/activityRegistrations.service';
 import { showToast } from '../components/Toast';
+import { splitDatetime, combineDatetime } from '../utils/datetime';
 
 type TabType = 'overview' | 'users' | 'notifications' | 'activities' | 'lost-found' | 'pending-review';
 type EditModalType = 'notification' | 'activity' | 'lost-item' | null;
@@ -664,21 +665,37 @@ const AdminDashboard: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs text-slate-500">报名开始</label>
-                      <input
-                        type="datetime-local"
-                        defaultValue={editModal.item.registration_start ? new Date(editModal.item.registration_start).toISOString().slice(0, 16) : ''}
-                        id="edit-registration-start"
-                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          defaultValue={editModal.item.registration_start ? splitDatetime(editModal.item.registration_start).date : ''}
+                          id="edit-registration-start-date"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                        <input
+                          type="time"
+                          defaultValue={editModal.item.registration_start ? splitDatetime(editModal.item.registration_start).time : ''}
+                          id="edit-registration-start-time"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-slate-500">报名结束</label>
-                      <input
-                        type="datetime-local"
-                        defaultValue={editModal.item.registration_end ? new Date(editModal.item.registration_end).toISOString().slice(0, 16) : ''}
-                        id="edit-registration-end"
-                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          defaultValue={editModal.item.registration_end ? splitDatetime(editModal.item.registration_end).date : ''}
+                          id="edit-registration-end-date"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                        <input
+                          type="time"
+                          defaultValue={editModal.item.registration_end ? splitDatetime(editModal.item.registration_end).time : ''}
+                          id="edit-registration-end-time"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
                   <p className="text-xs text-slate-400 mt-2">留空表示无需报名</p>
@@ -690,21 +707,37 @@ const AdminDashboard: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs text-slate-500">活动开始 *</label>
-                      <input
-                        type="datetime-local"
-                        defaultValue={editModal.item.activity_start ? new Date(editModal.item.activity_start).toISOString().slice(0, 16) : ''}
-                        id="edit-activity-start"
-                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          defaultValue={editModal.item.activity_start ? splitDatetime(editModal.item.activity_start).date : ''}
+                          id="edit-activity-start-date"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                        <input
+                          type="time"
+                          defaultValue={editModal.item.activity_start ? splitDatetime(editModal.item.activity_start).time : ''}
+                          id="edit-activity-start-time"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-slate-500">活动结束</label>
-                      <input
-                        type="datetime-local"
-                        defaultValue={editModal.item.activity_end ? new Date(editModal.item.activity_end).toISOString().slice(0, 16) : ''}
-                        id="edit-activity-end"
-                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          defaultValue={editModal.item.activity_end ? splitDatetime(editModal.item.activity_end).date : ''}
+                          id="edit-activity-end-date"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                        <input
+                          type="time"
+                          defaultValue={editModal.item.activity_end ? splitDatetime(editModal.item.activity_end).time : ''}
+                          id="edit-activity-end-time"
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -841,11 +874,19 @@ const AdminDashboard: React.FC = () => {
                   const category = (document.getElementById('edit-category') as HTMLSelectElement)?.value;
                   const image = (document.getElementById('edit-image') as HTMLInputElement)?.value;
 
-                  // Registration times
-                  const regStartInput = (document.getElementById('edit-registration-start') as HTMLInputElement)?.value;
-                  const regEndInput = (document.getElementById('edit-registration-end') as HTMLInputElement)?.value;
-                  const activityStartInput = (document.getElementById('edit-activity-start') as HTMLInputElement)?.value;
-                  const activityEndInput = (document.getElementById('edit-activity-end') as HTMLInputElement)?.value;
+                  // Registration times (combined from date + time inputs)
+                  const regStartDate = (document.getElementById('edit-registration-start-date') as HTMLInputElement)?.value;
+                  const regStartTime = (document.getElementById('edit-registration-start-time') as HTMLInputElement)?.value;
+                  const regEndDate = (document.getElementById('edit-registration-end-date') as HTMLInputElement)?.value;
+                  const regEndTime = (document.getElementById('edit-registration-end-time') as HTMLInputElement)?.value;
+                  const regStartInput = regStartDate ? combineDatetime(regStartDate, regStartTime) : '';
+                  const regEndInput = regEndDate ? combineDatetime(regEndDate, regEndTime) : '';
+                  const actStartDate = (document.getElementById('edit-activity-start-date') as HTMLInputElement)?.value;
+                  const actStartTime = (document.getElementById('edit-activity-start-time') as HTMLInputElement)?.value;
+                  const actEndDate = (document.getElementById('edit-activity-end-date') as HTMLInputElement)?.value;
+                  const actEndTime = (document.getElementById('edit-activity-end-time') as HTMLInputElement)?.value;
+                  const activityStartInput = actStartDate ? combineDatetime(actStartDate, actStartTime) : '';
+                  const activityEndInput = actEndDate ? combineDatetime(actEndDate, actEndTime) : '';
 
                   if (title) data.title = title;
                   if (description) data.description = description;

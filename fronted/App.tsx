@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './components/Toast';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 
 // Pages
 const Home = lazy(() => import('./pages/Home'));
@@ -41,6 +42,7 @@ const App: React.FC = () => {
     <HashRouter>
       <AuthProvider>
         <ToastProvider>
+          <WebSocketProvider>
           <Routes>
             {/* 根路径：根据登录状态跳转 */}
             <Route path="/" element={<RootRedirect />} />
@@ -94,6 +96,7 @@ const App: React.FC = () => {
               </Layout>
             } />
           </Routes>
+          </WebSocketProvider>
         </ToastProvider>
       </AuthProvider>
     </HashRouter>

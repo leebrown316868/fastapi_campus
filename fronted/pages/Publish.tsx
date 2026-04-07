@@ -8,6 +8,7 @@ import { showToast } from '../components/Toast';
 import ImageUpload from '../components/ImageUpload';
 import MultiImageUpload from '../components/MultiImageUpload';
 import DottedBackground from '../components/DottedBackground';
+import { splitDatetime, combineDatetime } from '../utils/datetime';
 
 type Category = 'course' | 'activity' | 'lost';
 
@@ -547,35 +548,69 @@ const Publish: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-slate-500">报名开始</label>
-                        <input
-                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
-                            timeErrors.registration
-                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
-                              : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
-                          }`}
-                          type="datetime-local"
-                          value={activityForm.registration_start}
-                          onChange={(e) => {
-                            setActivityForm({ ...activityForm, registration_start: e.target.value });
-                            setTimeErrors({ ...timeErrors, registration: '' });
-                          }}
-                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="date"
+                            value={splitDatetime(activityForm.registration_start).date}
+                            onChange={(e) => {
+                              const t = splitDatetime(activityForm.registration_start).time;
+                              setActivityForm({ ...activityForm, registration_start: combineDatetime(e.target.value, t) });
+                              setTimeErrors({ ...timeErrors, registration: '' });
+                            }}
+                            className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                              timeErrors.registration
+                                ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                                : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                            }`}
+                          />
+                          <input
+                            type="time"
+                            value={splitDatetime(activityForm.registration_start).time}
+                            onChange={(e) => {
+                              const d = splitDatetime(activityForm.registration_start).date;
+                              setActivityForm({ ...activityForm, registration_start: combineDatetime(d, e.target.value) });
+                              setTimeErrors({ ...timeErrors, registration: '' });
+                            }}
+                            className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                              timeErrors.registration
+                                ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                                : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                            }`}
+                          />
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-slate-500">报名结束</label>
-                        <input
-                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
-                            timeErrors.registration
-                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
-                              : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
-                          }`}
-                          type="datetime-local"
-                          value={activityForm.registration_end}
-                          onChange={(e) => {
-                            setActivityForm({ ...activityForm, registration_end: e.target.value });
-                            setTimeErrors({ ...timeErrors, registration: '' });
-                          }}
-                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="date"
+                            value={splitDatetime(activityForm.registration_end).date}
+                            onChange={(e) => {
+                              const t = splitDatetime(activityForm.registration_end).time;
+                              setActivityForm({ ...activityForm, registration_end: combineDatetime(e.target.value, t) });
+                              setTimeErrors({ ...timeErrors, registration: '' });
+                            }}
+                            className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                              timeErrors.registration
+                                ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                                : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                            }`}
+                          />
+                          <input
+                            type="time"
+                            value={splitDatetime(activityForm.registration_end).time}
+                            onChange={(e) => {
+                              const d = splitDatetime(activityForm.registration_end).date;
+                              setActivityForm({ ...activityForm, registration_end: combineDatetime(d, e.target.value) });
+                              setTimeErrors({ ...timeErrors, registration: '' });
+                            }}
+                            className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                              timeErrors.registration
+                                ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                                : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                            }`}
+                          />
+                        </div>
                       </div>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-2">
@@ -598,36 +633,71 @@ const Publish: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-slate-500">活动开始 <span className="text-red-500">*</span></label>
-                      <input
-                        className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
-                          timeErrors.activity
-                            ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
-                            : 'border-emerald-300 focus:ring-emerald-500/10 focus:border-emerald-500'
-                        }`}
-                        type="datetime-local"
-                        value={activityForm.activity_start}
-                        onChange={(e) => {
-                          setActivityForm({ ...activityForm, activity_start: e.target.value });
-                          setTimeErrors({ ...timeErrors, activity: '' });
-                        }}
-                        required
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          value={splitDatetime(activityForm.activity_start).date}
+                          onChange={(e) => {
+                            const t = splitDatetime(activityForm.activity_start).time;
+                            setActivityForm({ ...activityForm, activity_start: combineDatetime(e.target.value, t) });
+                            setTimeErrors({ ...timeErrors, activity: '' });
+                          }}
+                          required
+                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                            timeErrors.activity
+                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                              : 'border-emerald-300 focus:ring-emerald-500/10 focus:border-emerald-500'
+                          }`}
+                        />
+                        <input
+                          type="time"
+                          value={splitDatetime(activityForm.activity_start).time}
+                          onChange={(e) => {
+                            const d = splitDatetime(activityForm.activity_start).date;
+                            setActivityForm({ ...activityForm, activity_start: combineDatetime(d, e.target.value) });
+                            setTimeErrors({ ...timeErrors, activity: '' });
+                          }}
+                          required
+                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                            timeErrors.activity
+                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                              : 'border-emerald-300 focus:ring-emerald-500/10 focus:border-emerald-500'
+                          }`}
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-slate-500">活动结束</label>
-                      <input
-                        className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
-                          timeErrors.activity
-                            ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
-                            : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
-                        }`}
-                        type="datetime-local"
-                        value={activityForm.activity_end}
-                        onChange={(e) => {
-                          setActivityForm({ ...activityForm, activity_end: e.target.value });
-                          setTimeErrors({ ...timeErrors, activity: '' });
-                        }}
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          value={splitDatetime(activityForm.activity_end).date}
+                          onChange={(e) => {
+                            const t = splitDatetime(activityForm.activity_end).time;
+                            setActivityForm({ ...activityForm, activity_end: combineDatetime(e.target.value, t) });
+                            setTimeErrors({ ...timeErrors, activity: '' });
+                          }}
+                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                            timeErrors.activity
+                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                              : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                          }`}
+                        />
+                        <input
+                          type="time"
+                          value={splitDatetime(activityForm.activity_end).time}
+                          onChange={(e) => {
+                            const d = splitDatetime(activityForm.activity_end).date;
+                            setActivityForm({ ...activityForm, activity_end: combineDatetime(d, e.target.value) });
+                            setTimeErrors({ ...timeErrors, activity: '' });
+                          }}
+                          className={`w-full px-3 py-2.5 rounded-lg bg-white/70 border outline-none focus:ring-2 transition-all text-sm text-slate-900 ${
+                            timeErrors.activity
+                              ? 'border-red-300 focus:ring-red-500/10 focus:border-red-500'
+                              : 'border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500'
+                          }`}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -768,12 +838,26 @@ const Publish: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-900">大概时间 <span className="text-red-500">*</span></label>
-                <input
-                  className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
-                  type="datetime-local"
-                  value={lostForm.time}
-                  onChange={(e) => setLostForm({ ...lostForm, time: e.target.value })}
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={splitDatetime(lostForm.time).date}
+                    onChange={(e) => {
+                      const t = splitDatetime(lostForm.time).time;
+                      setLostForm({ ...lostForm, time: combineDatetime(e.target.value, t) });
+                    }}
+                    className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
+                  />
+                  <input
+                    type="time"
+                    value={splitDatetime(lostForm.time).time}
+                    onChange={(e) => {
+                      const d = splitDatetime(lostForm.time).date;
+                      setLostForm({ ...lostForm, time: combineDatetime(d, e.target.value) });
+                    }}
+                    className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
+                  />
+                </div>
               </div>
             </div>
 

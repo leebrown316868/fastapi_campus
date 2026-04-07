@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import DottedBackground from '../components/DottedBackground';
 import feedService, { FeedItem } from '../services/feed.service';
+import { formatDateTime } from '../utils/datetime';
 
 interface Author {
   name: string;
@@ -271,7 +272,7 @@ const Home: React.FC = () => {
                         {item.tag}
                       </span>
                       <span className="text-slate-400 text-xs font-medium flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px]">schedule</span> {item.time}
+                        <span className="material-symbols-outlined text-[14px]">schedule</span> {formatDateTime(item.time)}
                       </span>
                     </div>
                     <h3 className="text-slate-900 font-bold text-lg mb-2 leading-snug group-hover:text-primary transition-colors line-clamp-2">

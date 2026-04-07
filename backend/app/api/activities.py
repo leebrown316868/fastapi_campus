@@ -122,6 +122,19 @@ async def create_activity(
 
     await db.commit()
 
+    # WebSocket 广播推送
+    from app.api.ws import manager
+    for user in users:
+        await manager.send_to_user(user.id, {
+            "type": "new_notification",
+            "data": {
+                "type": "activity",
+                "title": f"新活动发布：{new_activity.title}",
+                "content": new_activity.description or f"快来报名参加{new_activity.title}！",
+                "link_url": f"/activities/{new_activity.id}",
+            },
+        })
+
     return ActivityResponse.model_validate(new_activity)
 
 

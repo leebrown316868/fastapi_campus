@@ -127,6 +127,19 @@ async def create_notification(
 
     await db.commit()
 
+    # WebSocket 广播推送
+    from app.api.ws import manager
+    for user in users:
+        await manager.send_to_user(user.id, {
+            "type": "new_notification",
+            "data": {
+                "type": "course",
+                "title": f"新课程通知：{new_notification.title}",
+                "content": f"{new_notification.course or '课程'}发布了新通知：{new_notification.title}",
+                "link_url": "/notifications",
+            },
+        })
+
     return NotificationResponse(
         id=new_notification.id,
         title=new_notification.title,

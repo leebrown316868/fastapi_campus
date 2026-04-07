@@ -283,6 +283,18 @@ async def review_lost_item(
     await db.commit()
     await db.refresh(item)
 
+    # 审批通过后触发智能匹配
+    if approve:
+        try:
+            from app.api.lost_item_matching import find_matching_items, notify_matches
+            matches = await find_matching_items(db, item.id, item.created_by)
+            if matches:
+                await notify_matches(db, item, matches)
+                await db.refresh(item)
+        except Exception as e:
+            logger = __import__("logging").getLogger(__name__)
+            logger.error("Failed to run matching for item %d: %s", item.id, e)
+
     # Get publisher info
     publisher = None
     if item.created_by:

@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userNotificationsService, UserNotification } from '../services/userNotifications.service';
 import { useAuth } from '../contexts/AuthContext';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
 
 export const NotificationBell: React.FC = () => {
   const { user } = useAuth();
+  const { isConnected, unreadCount: wsUnreadCount, lastNotification } = useWebSocketContext();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -31,14 +33,39 @@ export const NotificationBell: React.FC = () => {
     }
   }, [isOpen, user]);
 
-  // Fetch unread count periodically
+  // WebSocket 实时更新未读数（替代 30s 轮询）
+  useEffect(() => {
+    setUnreadCount(wsUnreadCount);
+  }, [wsUnreadCount]);
+
+  // 收到新通知时 prepend 到列表 + 直接递增本地未读数
+  useEffect(() => {
+    if (lastNotification?.type === 'new_notification') {
+      const data = lastNotification.data;
+      setUnreadCount(prev => prev + 1);
+      setNotifications(prev => [
+        {
+          id: Date.now(),
+          type: data.type as string,
+          title: data.title as string,
+          content: data.content as string,
+          link_url: data.link_url as string,
+          is_read: false,
+          created_at: new Date().toISOString(),
+        },
+        ...prev.slice(0, 4),
+      ]);
+      // 刷新完整列表（下次打开下拉时）
+      if (isOpen) {
+        fetchNotifications();
+      }
+    }
+  }, [lastNotification]);
+
+  // 初始加载一次未读数（WebSocket 连接前的 fallback）
   useEffect(() => {
     if (!user) return;
-
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000); // Every 30 seconds
-
-    return () => clearInterval(interval);
   }, [user]);
 
   const fetchNotifications = async () => {
@@ -149,6 +176,9 @@ export const NotificationBell: React.FC = () => {
         aria-label="通知"
       >
         <span className="material-symbols-outlined text-slate-600">notifications</span>
+
+        {/* WebSocket 连接状态 */}
+        <span className={`absolute bottom-0.5 right-0.5 size-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
 
         {/* Unread Badge */}
         {unreadCount > 0 && (

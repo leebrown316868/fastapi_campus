@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { lostItemsService } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
+import { useAuth } from '../contexts/AuthContext';
+import MatchedItems from '../components/MatchedItems';
+import { formatDateTime } from '../utils/datetime';
 
 const ItemDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [item, setItem] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
@@ -159,7 +163,7 @@ const ItemDetail: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-1">时间</p>
-                  <p className="text-slate-900 font-semibold leading-snug">{item.time}</p>
+                  <p className="text-slate-900 font-semibold leading-snug">{formatDateTime(item.time)}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-3 rounded-xl hover:bg-white/40 transition-colors">
@@ -181,6 +185,11 @@ const ItemDetail: React.FC = () => {
               </h3>
               <p className="text-slate-700 leading-relaxed">{item.description}</p>
             </div>
+
+            {/* 潜在匹配（仅查看自己的物品时显示） */}
+            {user && item.publisher && user.id === item.publisher.id.toString() && (
+              <MatchedItems itemId={parseInt(id!)} />
+            )}
 
             <div className="mt-auto">
               <button

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, DateTime
+from sqlalchemy import String, Text, ForeignKey, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -9,6 +9,10 @@ class Activity(Base):
     """Activity announcement model."""
 
     __tablename__ = "activities"
+    __table_args__ = (
+        Index('ft_activities', 'title', 'description', 'organizer', 'location',
+              mysql_prefix='FULLTEXT', mysql_with_parser='ngram'),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)

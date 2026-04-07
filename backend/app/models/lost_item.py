@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, ForeignKey, JSON
+from sqlalchemy import String, Text, ForeignKey, JSON, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -9,6 +9,10 @@ class LostItem(Base):
     """Lost and found item model."""
 
     __tablename__ = "lost_items"
+    __table_args__ = (
+        Index('ft_lost_items', 'title', 'description', 'location',
+              mysql_prefix='FULLTEXT', mysql_with_parser='ngram'),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)

@@ -107,4 +107,20 @@ export const lostItemsService = {
   async delete(id: number): Promise<void> {
     return apiClient.delete(`/api/lost-items/${id}`);
   },
+
+  /**
+   * Get potential matching items for a lost/found item
+   */
+  async getMatches(itemId: number): Promise<MatchResult[]> {
+    return apiClient.get<MatchResult[]>(`/api/lost-items/${itemId}/matches`);
+  },
 };
+
+export interface MatchResult {
+  id: number;
+  title: string;
+  type: string;
+  category: string;
+  location: string;
+  score: number;
+}

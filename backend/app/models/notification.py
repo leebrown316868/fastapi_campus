@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Boolean, Text, ForeignKey
+from sqlalchemy import String, Boolean, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -9,6 +9,10 @@ class Notification(Base):
     """Course notification model."""
 
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index('ft_notifications', 'title', 'content', 'course',
+              mysql_prefix='FULLTEXT', mysql_with_parser='ngram'),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)

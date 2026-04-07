@@ -107,7 +107,7 @@ async def get_latest_feed(
         feed_items.append({
             "id": f"lost-{item.id}",
             "type": "lost_item",
-            "tag": tag_map.get(item.item_type, "其他"),
+            "tag": tag_map.get(item.type, "其他"),
             "tag_color": "bg-amber-100 text-amber-700",
             "title": item.title,
             "description": item.description[:100] + "..." if len(item.description) > 100 else item.description,

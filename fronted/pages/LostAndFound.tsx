@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { lostItemsService, LostItem as ApiLostItem } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
+import { formatDateTime } from '../utils/datetime';
 
 const LostAndFound: React.FC = () => {
   const { user } = useAuth();
@@ -269,7 +270,7 @@ const LostAndFound: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <span className="material-symbols-outlined text-sm">schedule</span>
-                  {item.time}
+                  {formatDateTime(item.time)}
                 </div>
               </div>
             </Link>

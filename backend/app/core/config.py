@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./campus_hub.db"
+    DATABASE_URL: str = "mysql+aiomysql://campus:campus123@localhost:3306/campus_hub"
 
     # JWT
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
