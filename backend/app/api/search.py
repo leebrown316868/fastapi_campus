@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+import json
 
 from app.db.database import get_db
+from app.services.embedding_service import embedding_service
 
 router = APIRouter(tags=["search"])
 
@@ -123,39 +125,61 @@ async def unified_search(
             ))
 
     if type in ("all", "lost-items"):
-        if use_fulltext:
-            sql = text("""
-                SELECT id, title, description, category, location, type AS item_type,
-                       status, images,
-                       MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE) AS score
-                FROM lost_items
-                WHERE MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE)
-                ORDER BY score DESC
-                LIMIT :lim
-            """)
+        # 优先使用 Qdrant 语义搜索，失败则降级到 FULLTEXT/LIKE
+        if embedding_service.vector_db.is_available:
+            matches = embedding_service.search_lost_items(
+                query=keyword,
+                limit=limit,
+                item_type=None,  # 支持 all 类型
+            )
+            counts["lost_items"] = len(matches)
+            for m in matches:
+                results.append(SearchResultItem(
+                    id=m["id"],
+                    type="lost_item",
+                    title=m["payload"]["title"],
+                    description=m["payload"].get("description", "")[:200],
+                    score=m["score"],
+                    extra={
+                        "category": m["payload"].get("category"),
+                        "location": m["payload"].get("location"),
+                        "item_type": m["payload"].get("type"),
+                    },
+                ))
         else:
-            sql = text("""
-                SELECT id, title, description, category, location, type AS item_type,
-                       status, images, 1.0 AS score
-                FROM lost_items
-                WHERE title LIKE CONCAT('%', :kw, '%')
-                   OR description LIKE CONCAT('%', :kw, '%')
-                   OR location LIKE CONCAT('%', :kw, '%')
-                LIMIT :lim
-            """)
-        rows = (await db.execute(sql, {"kw": keyword, "lim": limit})).fetchall()
-        counts["lost_items"] = len(rows)
-        for r in rows:
-            results.append(SearchResultItem(
-                id=r.id, type="lost_item", title=r.title,
-                description=r.description[:200] if r.description else "",
-                score=float(r.score),
-                extra={
-                    "category": r.category, "location": r.location,
-                    "item_type": r.item_type, "status": r.status,
-                    "images": r.images,
-                },
-            ))
+            if use_fulltext:
+                sql = text("""
+                    SELECT id, title, description, category, location, type AS item_type,
+                           status, images,
+                           MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE) AS score
+                    FROM lost_items
+                    WHERE MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE)
+                    ORDER BY score DESC
+                    LIMIT :lim
+                """)
+            else:
+                sql = text("""
+                    SELECT id, title, description, category, location, type AS item_type,
+                           status, images, 1.0 AS score
+                    FROM lost_items
+                    WHERE title LIKE CONCAT('%', :kw, '%')
+                       OR description LIKE CONCAT('%', :kw, '%')
+                       OR location LIKE CONCAT('%', :kw, '%')
+                    LIMIT :lim
+                """)
+            rows = (await db.execute(sql, {"kw": keyword, "lim": limit})).fetchall()
+            counts["lost_items"] = len(rows)
+            for r in rows:
+                results.append(SearchResultItem(
+                    id=r.id, type="lost_item", title=r.title,
+                    description=r.description[:200] if r.description else "",
+                    score=float(r.score),
+                    extra={
+                        "category": r.category, "location": r.location,
+                        "item_type": r.item_type, "status": r.status,
+                        "images": json.loads(r.images) if r.images else [],
+                    },
+                ))
 
     # Global sort by relevance score
     results.sort(key=lambda x: x.score, reverse=True)
