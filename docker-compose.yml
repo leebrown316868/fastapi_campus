@@ -25,6 +25,17 @@ services:
       - "8080:8080"
     restart: unless-stopped
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: campus-hub-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
 volumes:
   backend_data:
   backend_uploads:
+  qdrant_storage:

@@ -29,6 +29,11 @@ class Settings(BaseSettings):
         "http://localhost:5174",
     ]
 
+    # Qdrant Vector Search
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_COLLECTION: str = "campus_hub_lost_items"
+    EMBEDDING_MODEL_NAME: str = "BAAI/bge-m3"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
