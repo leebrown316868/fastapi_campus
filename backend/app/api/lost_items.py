@@ -186,6 +186,7 @@ async def create_lost_item(
             location=new_item.location or "",
             item_type=new_item.type,
             category=new_item.category,
+            created_by=new_item.created_by,
         )
     except Exception as e:
         import logging
@@ -266,6 +267,7 @@ async def update_lost_item(
             location=item.location or "",
             item_type=item.type,
             category=item.category,
+            created_by=item.created_by,
         )
     except Exception as e:
         import logging

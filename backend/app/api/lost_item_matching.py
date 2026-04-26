@@ -1,12 +1,11 @@
 """失物招领智能匹配模块。
 
-匹配算法：基于 TF-IDF 余弦相似度 + 分类权重 + 地点相似度的多维综合匹配。
+匹配算法：基于 Qdrant 语义向量检索的交叉匹配。
 
 算法流程：
-1. FULLTEXT 候选召回：利用 MySQL ngram 全文索引快速检索 opposite_type 候选集
-2. TF-IDF 向量化：以候选集为微语料库，计算源物品与每个候选的文本相似度
-3. 多维加权评分：category(40%) + cosine_similarity(40%) + location(20%)
-4. 阈值过滤 + Top-K 返回
+1. Qdrant 语义搜索：使用 BGE-M3 embedding 向量相似度搜索 opposite_type 候选集
+2. 过滤逻辑：排除当前用户自己发布的物品（通过 payload.created_by 判断）
+3. Top-K 返回：按 score 降序返回匹配结果
 """
 import math
 import re
@@ -46,126 +45,6 @@ class MatchResultResponse(BaseModel):
     score: float
 
 
-# ── 文本处理工具函数 ──
-
-
-def _tokenize(text: str) -> list[str]:
-    """文本分词。
-
-    中文：双字词切分（与 MySQL ngram tokenizer 的 ngram_token_size=2 一致）。
-    英文/数字：按完整单词作为 token。
-    示例："Apple AirPods 蓝牙耳机" → ["apple", "airpods", "蓝牙", "牙耳", "耳机"]
-    """
-    tokens = []
-    segments = re.findall(r'[\u4e00-\u9fff]+|[a-zA-Z0-9]+', text.lower())
-    for segment in segments:
-        if re.match(r'[\u4e00-\u9fff]+', segment):
-            # 中文：bigram 切分
-            if len(segment) >= 2:
-                tokens.extend(segment[i:i + 2] for i in range(len(segment) - 1))
-            else:
-                tokens.append(segment)
-        else:
-            tokens.append(segment.lower())
-    return tokens
-
-
-def _compute_tf(token_list: list[str]) -> dict[str, float]:
-    """计算词频 TF（Term Frequency）。
-
-    TF(t, d) = count(t in d) / |d|
-    """
-    if not token_list:
-        return {}
-    counts = Counter(token_list)
-    total = len(token_list)
-    return {term: count / total for term, count in counts.items()}
-
-
-def _compute_idf(documents: list[list[str]]) -> dict[str, float]:
-    """计算逆文档频率 IDF（Inverse Document Frequency）。
-
-    IDF(t, D) = ln((1 + |D|) / (1 + df(t))) + 1
-
-    其中 |D| 为文档总数，df(t) 为包含词 t 的文档数。
-    使用平滑版本避免 IDF 为负值，与 scikit-learn 的 smooth_idf 一致。
-    """
-    n = len(documents)
-    if n == 0:
-        return {}
-    df: Counter = Counter()
-    for doc in documents:
-        for term in set(doc):
-            df[term] += 1
-    return {term: math.log((1 + n) / (1 + count)) + 1 for term, count in df.items()}
-
-
-def _compute_tfidf(tf: dict[str, float], idf: dict[str, float]) -> dict[str, float]:
-    """计算 TF-IDF 权重向量。
-
-    TF-IDF(t, d, D) = TF(t, d) × IDF(t, D)
-    """
-    return {term: tf_val * idf.get(term, 1.0) for term, tf_val in tf.items()}
-
-
-def _cosine_similarity(vec_a: dict[str, float], vec_b: dict[str, float]) -> float:
-    """计算两个稀疏向量的余弦相似度。
-
-    cos(A, B) = (A · B) / (||A|| × ||B||)
-    """
-    common_terms = set(vec_a.keys()) & set(vec_b.keys())
-    if not common_terms:
-        return 0.0
-    dot = sum(vec_a[t] * vec_b[t] for t in common_terms)
-    mag_a = math.sqrt(sum(v * v for v in vec_a.values()))
-    mag_b = math.sqrt(sum(v * v for v in vec_b.values()))
-    if mag_a == 0 or mag_b == 0:
-        return 0.0
-    return dot / (mag_a * mag_b)
-
-
-def _text_similarity(text_a: str, text_b: str, corpus: list[str]) -> float:
-    """基于微语料库的 TF-IDF 余弦相似度。
-
-    将源文本、目标文本和其余候选文本组成微语料库 D，
-    在 D 上计算 IDF，然后计算源与目标的 TF-IDF 余弦相似度。
-    """
-    all_tokenized = [_tokenize(text_a), _tokenize(text_b)] + [_tokenize(t) for t in corpus]
-    idf = _compute_idf(all_tokenized)
-
-    tfidf_a = _compute_tfidf(_compute_tf(all_tokenized[0]), idf)
-    tfidf_b = _compute_tfidf(_compute_tf(all_tokenized[1]), idf)
-
-    return _cosine_similarity(tfidf_a, tfidf_b)
-
-
-def _location_similarity(loc1: str, loc2: str) -> float:
-    """计算地点相似度（0.0 ~ 1.0）。
-
-    规则：
-    - 完全相同 → 1.0
-    - 包含关系 → 0.8
-    - 关键词重叠 → 0.5
-    - 无交集 → 0.0
-    """
-    if not loc1 or not loc2:
-        return 0.0
-    a, b = loc1.lower(), loc2.lower()
-    if a == b:
-        return 1.0
-    if a in b or b in a:
-        return 0.8
-    # 去掉常见后缀后分词匹配
-    for sep in ["楼", "室", "层", "区", "栋", "号"]:
-        a = a.replace(sep, " ")
-        b = b.replace(sep, " ")
-    words_a = set(a.split())
-    words_b = set(b.split())
-    if words_a & words_b:
-        return 0.5
-    return 0.0
-
-
 # ── 匹配核心函数 ──
 
 
@@ -194,7 +73,7 @@ async def find_matching_items(
 
     results = []
     for m in matches:
-        if m["id"] == user_id:
+        if m["payload"].get("created_by") == user_id:
             continue
         results.append({
             "id": m["id"],

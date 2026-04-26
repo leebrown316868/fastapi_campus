@@ -26,6 +26,7 @@ class EmbeddingService:
         location: str,
         item_type: str,  # "lost" or "found"
         category: str,
+        created_by: int,
     ) -> bool:
         """为失物招领内容生成并存储向量。"""
         if not self.vector_db.is_available:
@@ -41,6 +42,7 @@ class EmbeddingService:
             "location": location,
             "type": item_type,
             "category": category,
+            "created_by": created_by,
         }
 
         return self.vector_db.upsert(id=item_id, vector=vector, payload=payload)
@@ -84,6 +86,7 @@ class EmbeddingService:
                 location=item.get("location", ""),
                 item_type=item["type"],
                 category=item.get("category", ""),
+                created_by=item.get("created_by", 0),
             ):
                 count += 1
         return count
