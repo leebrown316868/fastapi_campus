@@ -375,6 +375,15 @@ async def batch_delete_lost_items(
     )
     await db.commit()
 
+    # 批量删除向量索引
+    try:
+        from app.services.embedding_service import embedding_service
+        for item_id in item_ids:
+            embedding_service.delete_lost_item(item_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"批量向量删除失败: {e}")
+
     return {"deleted": len(item_ids)}
 
 
