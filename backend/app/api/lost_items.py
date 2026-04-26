@@ -176,6 +176,21 @@ async def create_lost_item(
         phone=current_user.phone if current_user.show_phone_in_lost_item else None,
     )
 
+    # 同步写入向量索引
+    try:
+        from app.services.embedding_service import embedding_service
+        embedding_service.index_lost_item(
+            item_id=new_item.id,
+            title=new_item.title,
+            description=new_item.description or "",
+            location=new_item.location or "",
+            item_type=new_item.type,
+            category=new_item.category,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"向量索引失败: {e}")
+
     return LostItemResponse(
         id=new_item.id,
         title=new_item.title,
@@ -240,6 +255,21 @@ async def update_lost_item(
                 email=user.email if user.show_email_in_lost_item else None,
                 phone=user.phone if user.show_phone_in_lost_item else None,
             )
+
+    # 同步写入向量索引
+    try:
+        from app.services.embedding_service import embedding_service
+        embedding_service.index_lost_item(
+            item_id=item.id,
+            title=item.title,
+            description=item.description or "",
+            location=item.location or "",
+            item_type=item.type,
+            category=item.category,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"向量索引失败: {e}")
 
     return LostItemResponse(
         id=item.id,
@@ -375,3 +405,11 @@ async def delete_lost_item(
 
     await db.delete(item)
     await db.commit()
+
+    # 同步删除向量索引
+    try:
+        from app.services.embedding_service import embedding_service
+        embedding_service.delete_lost_item(item_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"向量删除失败: {e}")
