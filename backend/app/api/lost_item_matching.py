@@ -26,6 +26,7 @@ from app.models.lost_item import LostItem
 from app.models.user_notification import UserNotification
 from app.api.deps import get_current_user
 from app.api.ws import manager
+from app.services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -173,73 +174,38 @@ async def find_matching_items(
     item_id: int,
     user_id: int,
 ) -> list[dict]:
-    """查找与指定物品交叉匹配的物品列表。
-
-    算法步骤：
-    1. FULLTEXT 候选召回：在 opposite_type 中检索状态为"寻找中"且已审核的物品（最多10条）
-    2. 构建微语料库：源文本 + 所有候选文本
-    3. 逐个计算 TF-IDF 余弦相似度
-    4. 多维加权：final_score = 0.4 × category + 0.4 × cosine_sim + 0.2 × location
-    5. 过滤 score > 0.1，返回 top 5
-    """
+    """查找与指定物品交叉匹配的物品列表。"""
     source = await db.get(LostItem, item_id)
     if not source:
         return []
 
     opposite_type = "found" if source.type == "lost" else "lost"
-    source_text = f"{source.title} {source.description} {source.location}"
 
-    # Step 1: FULLTEXT 候选召回
-    sql = text("""
-        SELECT id, title, type, category, location, description
-        FROM lost_items
-        WHERE type = :otype
-          AND status = '寻找中'
-          AND review_status = 'approved'
-          AND created_by != :uid
-          AND MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE)
-        ORDER BY MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE) DESC
-        LIMIT 10
-    """)
-    rows = (await db.execute(sql, {
-        "kw": source_text,
-        "otype": opposite_type,
-        "uid": user_id,
-    })).fetchall()
+    # 使用 Qdrant 语义搜索
+    if not embedding_service.vector_db.is_available:
+        return []  # Qdrant 不可用时返回空，不阻塞
 
-    if not rows:
-        return []
+    query = f"{source.title} {source.description} {source.location}"
+    matches = embedding_service.search_lost_items(
+        query=query,
+        limit=5,
+        item_type=opposite_type,
+    )
 
-    # Step 2: 构建候选文本列表（用于 IDF 计算的微语料库）
-    candidate_texts = [f"{r.title} {r.description} {r.location}" for r in rows]
-
-    # Step 3: 逐个计算综合评分
     results = []
-    for i, row in enumerate(rows):
-        # TF-IDF 余弦相似度
-        cosine_sim = _text_similarity(source_text, candidate_texts[i], candidate_texts[:i] + candidate_texts[i + 1:])
+    for m in matches:
+        if m["id"] == user_id:
+            continue
+        results.append({
+            "id": m["id"],
+            "title": m["payload"]["title"],
+            "type": m["payload"]["type"],
+            "category": m["payload"]["category"],
+            "location": m["payload"]["location"],
+            "score": round(m["score"], 4),
+        })
 
-        # 分类匹配
-        category_match = 1.0 if row.category == source.category else 0.0
-
-        # 地点相似度
-        loc_sim = _location_similarity(row.location, source.location)
-
-        # 多维加权评分
-        final_score = 0.4 * category_match + 0.4 * cosine_sim + 0.2 * loc_sim
-
-        if final_score > 0.1:
-            results.append({
-                "id": row.id,
-                "title": row.title,
-                "type": row.type,
-                "category": row.category,
-                "location": row.location,
-                "score": round(final_score, 4),
-            })
-
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return results[:5]
+    return results
 
 
 async def notify_matches(db: AsyncSession, item: LostItem, matches: list[dict]):
