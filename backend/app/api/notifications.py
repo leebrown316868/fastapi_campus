@@ -18,6 +18,23 @@ DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
 
+def _filter_target_users(users: List[User], target_grades: list | None, target_departments: list | None, target_majors: list | None) -> List[User]:
+    """Filter users by target criteria. If all targets are empty, return all users (broadcast)."""
+    has_targets = bool(target_grades or target_departments or target_majors)
+    if not has_targets:
+        return users
+
+    filtered = []
+    for user in users:
+        if target_grades and user.grade in target_grades:
+            filtered.append(user)
+        elif target_departments and user.department in target_departments:
+            filtered.append(user)
+        elif target_majors and user.major in target_majors:
+            filtered.append(user)
+    return filtered
+
+
 @router.get("", response_model=List[NotificationResponse])
 async def get_notifications(
     created_by: Optional[int] = Query(None, description="Filter by user ID who created the notification"),
@@ -112,7 +129,15 @@ async def create_notification(
     )
     users = result.scalars().all()
 
-    for user in users:
+    # 按目标人群过滤
+    target_users = _filter_target_users(
+        users,
+        new_notification.target_grades or None,
+        new_notification.target_departments or None,
+        new_notification.target_majors or None,
+    )
+
+    for user in target_users:
         user_notification = UserNotification(
             user_id=user.id,
             type="course",
@@ -127,9 +152,9 @@ async def create_notification(
 
     await db.commit()
 
-    # WebSocket 广播推送
+    # WebSocket 定向推送
     from app.api.ws import manager
-    for user in users:
+    for user in target_users:
         await manager.send_to_user(user.id, {
             "type": "new_notification",
             "data": {
