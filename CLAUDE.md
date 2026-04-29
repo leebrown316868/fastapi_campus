@@ -8,7 +8,7 @@ Campus Hub (校园信息聚合平台) - A comprehensive campus service informati
 
 **Tech Stack:**
 - Frontend: React 19.2.3 + TypeScript 5.8 + Vite 6.2 + Tailwind CSS
-- Backend: FastAPI 0.115.0 + SQLAlchemy 2.0.35 + aiosqlite
+- Backend: FastAPI 0.115.0 + SQLAlchemy 2.0.35 + aiomysql
 - Router: React Router DOM 7.12 with HashRouter
 - Auth: JWT (python-jose) + bcrypt password hashing
 
@@ -25,8 +25,9 @@ npm run preview      # Preview production build
 # Backend (in backend/ directory)
 cd backend
 pip install -r requirements.txt    # Install dependencies
+python migrations/add_targeting_fields.py    # Migrate: targeting fields
+python migrations/add_points_feedback.py    # Migrate: points + feedback tables
 python init_db.py                  # Initialize database with test users
-python add_privacy_columns.py      # Migrate database for privacy settings (if needed)
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000    # Start dev server
 
 # Docker deployment
@@ -163,7 +164,8 @@ const isOwnProfile = currentUser?.id === user.id.toString();
 **Database Migration:**
 ```bash
 cd backend
-python add_privacy_columns.py  # Run if privacy columns don't exist
+python migrations/add_targeting_fields.py     # 定向推送字段
+python migrations/add_points_feedback.py      # 积分 + 反馈表
 ```
 
 ### Static File Serving
@@ -256,10 +258,9 @@ hub-claudecode/
     │       └── lost_item.py
     ├── main.py                     # FastAPI app with CORS and routers
     ├── init_db.py                  # Create tables and test users + sample data
-    ├── add_privacy_columns.py      # Database migration for privacy settings
+    ├── migrations/                 # Database migration scripts
     ├── .env.example                # Environment variables template
     ├── Dockerfile                  # Backend Docker build
-    └── campus_hub.db               # SQLite database (created at runtime)
 ```
 
 ## User Roles & Permissions
@@ -360,7 +361,7 @@ import { NotificationBell } from '../components/NotificationBell';
 
 **Backend (.env):**
 ```bash
-DATABASE_URL=sqlite+aiosqlite:///./campus_hub.db
+DATABASE_URL=mysql+aiomysql://campus:campus123@localhost:3306/campus_hub
 SECRET_KEY=your-secret-key-change-this-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
@@ -373,7 +374,7 @@ VITE_API_URL=/  # Uses relative path for proxy, or http://localhost:8000 for dir
 ```
 
 **Docker (docker-compose.yml):**
-- Backend: SQLite database in `/data` volume, uploads in `/app/uploads` volume
+- Backend: MySQL database, uploads in `/app/uploads` volume
 - Frontend: Nginx serving static files on port 8080
 - Environment variables override defaults for production
 
