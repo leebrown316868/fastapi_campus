@@ -27,6 +27,8 @@ class User(Base):
     show_avatar_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=True)
     show_email_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=False)
     show_phone_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=False)
+    grade: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    department: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
