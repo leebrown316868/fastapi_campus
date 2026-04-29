@@ -27,11 +27,11 @@ async def migrate():
             except Exception:
                 print(f"  Skipped users.{col} (already exists)")
 
-        # Notification table: add target fields (JSON in SQLite = TEXT)
+        # Notification table: add target fields
         for col in ["target_grades", "target_departments", "target_majors"]:
             try:
                 await conn.execute(text(
-                    f"ALTER TABLE notifications ADD COLUMN {col} TEXT DEFAULT '[]'"
+                    f"ALTER TABLE notifications ADD COLUMN {col} JSON"
                 ))
                 print(f"  Added notifications.{col}")
             except Exception:

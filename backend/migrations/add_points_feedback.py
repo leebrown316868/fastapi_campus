@@ -17,51 +17,67 @@ async def migrate():
         # Add total_points to users
         try:
             await conn.execute(text(
-                "ALTER TABLE users ADD COLUMN total_points INTEGER DEFAULT 0"
+                "ALTER TABLE users ADD COLUMN total_points INT DEFAULT 0"
             ))
             print("  Added users.total_points")
         except Exception:
             print("  Skipped users.total_points (already exists)")
 
         # Create point_records table
-        await conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS point_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                points INTEGER NOT NULL,
-                reason VARCHAR(50) NOT NULL,
-                activity_id INTEGER REFERENCES activities(id),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
-        print("  Ensured point_records table")
+        try:
+            await conn.execute(text("""
+                CREATE TABLE point_records (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    user_id INT NOT NULL,
+                    points INT NOT NULL,
+                    reason VARCHAR(50) NOT NULL,
+                    activity_id INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (activity_id) REFERENCES activities(id)
+                )
+            """))
+            print("  Created point_records table")
+        except Exception:
+            print("  Skipped point_records (already exists)")
 
-        await conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS ix_point_records_user_id ON point_records(user_id)"
-        ))
-        print("  Ensured ix_point_records_user_id")
+        # Create index (safe to run multiple times in MySQL)
+        try:
+            await conn.execute(text(
+                "CREATE INDEX ix_point_records_user_id ON point_records(user_id)"
+            ))
+        except Exception:
+            pass
 
         # Create activity_feedbacks table
-        await conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS activity_feedbacks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                activity_id INTEGER NOT NULL REFERENCES activities(id),
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
-                comment VARCHAR(500),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(activity_id, user_id)
-            )
-        """))
-        print("  Ensured activity_feedbacks table")
+        try:
+            await conn.execute(text("""
+                CREATE TABLE activity_feedbacks (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    activity_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    rating INT NOT NULL,
+                    comment VARCHAR(500),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(activity_id, user_id),
+                    FOREIGN KEY (activity_id) REFERENCES activities(id),
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    CHECK(rating >= 1 AND rating <= 5)
+                )
+            """))
+            print("  Created activity_feedbacks table")
+        except Exception:
+            print("  Skipped activity_feedbacks (already exists)")
 
-        await conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS ix_activity_feedbacks_activity_id ON activity_feedbacks(activity_id)"
-        ))
-        await conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS ix_activity_feedbacks_user_id ON activity_feedbacks(user_id)"
-        ))
-        print("  Ensured feedback indexes")
+        # Create indexes
+        for idx_name, idx_def in [
+            ("ix_activity_feedbacks_activity_id", "CREATE INDEX ix_activity_feedbacks_activity_id ON activity_feedbacks(activity_id)"),
+            ("ix_activity_feedbacks_user_id", "CREATE INDEX ix_activity_feedbacks_user_id ON activity_feedbacks(user_id)"),
+        ]:
+            try:
+                await conn.execute(text(idx_def))
+            except Exception:
+                pass
 
     print("Migration complete.")
 
