@@ -16,6 +16,7 @@ from app.schemas.activity_registration import (
     ActivityRegistrationResponse,
     RegistrationListResponse,
 )
+from app.models.point_record import PointRecord
 from app.api.deps import get_current_user, get_current_admin
 
 
@@ -130,6 +131,19 @@ async def register_for_activity(
     )
 
     db.add(registration)
+
+    # Award registration points
+    point_record = PointRecord(
+        user_id=current_user.id,
+        points=5,
+        reason="registration",
+        activity_id=activity_id,
+    )
+    db.add(point_record)
+
+    # Update user's total_points
+    current_user.total_points += 5
+
     await db.commit()
     await db.refresh(registration)
 

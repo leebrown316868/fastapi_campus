@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.db.database import init_db
-from app.api import auth, notifications, activities, lost_items, users, uploads, user_notifications, activity_registrations, feed, search, ws, lost_item_matching
+from app.api import auth, notifications, activities, lost_items, users, uploads, user_notifications, activity_registrations, feed, search, ws, lost_item_matching, activity_feedback, points
 
 
 @asynccontextmanager
@@ -41,6 +41,8 @@ app.include_router(feed.router)
 app.include_router(search.router)
 app.include_router(user_notifications.router)  # Must be before notifications.router to avoid route conflicts
 app.include_router(notifications.router)
+app.include_router(activity_feedback.router)  # Must be before activity_registrations: /{activity_id}/feedback is more specific
+app.include_router(points.router)
 app.include_router(activity_registrations.router)  # Must be before activities.router to avoid /my-registrations route conflict
 app.include_router(activities.router)
 app.include_router(lost_item_matching.router)  # Must be before lost_items.router
