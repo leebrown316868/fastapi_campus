@@ -11,6 +11,7 @@ export interface Activity {
   category: string;
   capacity: number;
   status: string;
+  notes: string | null;
   // Time fields (nullable for activities without registration)
   registration_start: string | null;
   registration_end: string | null;
@@ -95,6 +96,7 @@ export const activitiesService = {
     date?: string;
     location?: string;
     organizer?: string;
+    notes?: string;
     image?: string;
     category?: string;
     capacity?: number;

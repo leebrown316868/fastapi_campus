@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { lostItemsService } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
+import { resolveImageUrl } from '../services/uploads.service';
 import MatchedItems from '../components/MatchedItems';
 import { formatDateTime } from '../utils/datetime';
 
@@ -92,7 +93,7 @@ const ItemDetail: React.FC = () => {
                 <>
                   <div
                     className="h-full w-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                    style={{ backgroundImage: `url(${item.images[activeImg]})` }}
+                    style={{ backgroundImage: `url(${resolveImageUrl(item.images[activeImg])})` }}
                   ></div>
                   {/* Thumbnail Bar */}
                   {item.images.length > 1 && (
@@ -104,7 +105,7 @@ const ItemDetail: React.FC = () => {
                           className={`size-12 rounded-lg bg-cover bg-center border-2 cursor-pointer shadow-lg transition-all ${
                             activeImg === idx ? 'border-white scale-110' : 'border-white/30 opacity-70 hover:opacity-100'
                           }`}
-                          style={{ backgroundImage: `url(${img})` }}
+                          style={{ backgroundImage: `url(${resolveImageUrl(img)})` }}
                         ></div>
                       ))}
                     </div>

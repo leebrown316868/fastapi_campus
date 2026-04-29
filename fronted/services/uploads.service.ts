@@ -4,6 +4,18 @@
 
 import { apiClient } from './api';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+/**
+ * Resolve an image URL from the backend to a full URL.
+ * Database stores paths like "/uploads/xxx.jpg" which need the API base URL prefix.
+ */
+export function resolveImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  return `${API_BASE_URL}${url}`;
+}
+
 // Upload response types
 export interface UploadResponse {
   url: string;

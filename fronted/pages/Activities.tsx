@@ -5,6 +5,7 @@ import { activitiesService, Activity as ApiActivity } from '../services/activiti
 import { useAuth } from '../contexts/AuthContext';
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
+import { resolveImageUrl } from '../services/uploads.service';
 
 const Activities: React.FC = () => {
   const { user } = useAuth();
@@ -162,7 +163,7 @@ const Activities: React.FC = () => {
               <div className="flex flex-col lg:flex-row min-h-[400px]">
                 <div className="w-full lg:w-1/2 relative overflow-hidden">
                   <img
-                    src={activities[0].image}
+                    src={resolveImageUrl(activities[0].image)}
                     alt={activities[0].title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
@@ -232,7 +233,7 @@ const Activities: React.FC = () => {
               <Link key={activity.id} to={`/activities/${activity.id}`} className="glass-card rounded-[2rem] overflow-hidden group hover:bg-white/90 transition-all duration-500 cursor-pointer flex flex-col block">
                 <div className="relative aspect-video overflow-hidden">
                   <img
-                    src={activity.image}
+                    src={resolveImageUrl(activity.image)}
                     alt={activity.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />

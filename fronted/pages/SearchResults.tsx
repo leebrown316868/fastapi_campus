@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { searchService, SearchResultItem } from '../services/search.service';
+import { resolveImageUrl } from '../services/uploads.service';
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
 
@@ -211,7 +212,7 @@ const SearchResults: React.FC = () => {
                     >
                       <div className="relative aspect-video">
                         <img
-                          src={item.extra.image}
+                          src={resolveImageUrl(item.extra.image)}
                           alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -250,7 +251,13 @@ const SearchResults: React.FC = () => {
                     >
                       <div className="relative aspect-[4/3]">
                         <img
-                          src={item.extra.images?.[0] || 'https://via.placeholder.com/400x300?text=No+Image'}
+                          src={resolveImageUrl(
+                              (Array.isArray(item.extra.images)
+                                ? item.extra.images[0]
+                                : item.extra.images
+                                ? JSON.parse(item.extra.images)[0]
+                                : null)
+                            ) || '/no-image.png'}
                           alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />

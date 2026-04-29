@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { lostItemsService, LostItem as ApiLostItem } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
+import { resolveImageUrl } from '../services/uploads.service';
 import { formatDateTime } from '../utils/datetime';
 
 const LostAndFound: React.FC = () => {
@@ -241,7 +242,7 @@ const LostAndFound: React.FC = () => {
             <Link to={`/lost-and-found/${item.id}`} key={item.id} className="glass-card glass-card-hover rounded-2xl overflow-hidden group">
               <div className="relative aspect-[4/3]">
                 <img
-                  src={item.images?.[0] || 'https://via.placeholder.com/400x300?text=No+Image'}
+                  src={resolveImageUrl(item.images?.[0]) || '/no-image.png'}
                   alt={item.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
