@@ -67,3 +67,9 @@ Thumbs.db
 .bg-shell/
 .workbuddy/
 .claude/skills/
+
+thesis/
+
+# Superpowers
+.superpowers/
+.worktrees/
