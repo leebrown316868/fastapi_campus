@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional
 from datetime import datetime
 
@@ -24,6 +24,15 @@ class ActivityBase(BaseModel):
     # Status is calculated automatically
     status: str = "报名中"
 
+    @model_validator(mode="after")
+    def strip_timezone(self):
+        """Strip timezone info from all datetime fields (DB stores local time)."""
+        for field_name in ("registration_start", "registration_end", "activity_start", "activity_end"):
+            dt = getattr(self, field_name, None)
+            if dt is not None and dt.tzinfo is not None:
+                setattr(self, field_name, dt.replace(tzinfo=None))
+        return self
+
 
 class ActivityCreate(ActivityBase):
     """Activity creation schema."""
@@ -47,10 +56,21 @@ class ActivityUpdate(BaseModel):
     activity_end: Optional[datetime] = None
     status: Optional[str] = None
 
+    @model_validator(mode="after")
+    def strip_timezone(self):
+        """Strip timezone info from all datetime fields (DB stores local time)."""
+        for field_name in ("registration_start", "registration_end", "activity_start", "activity_end"):
+            dt = getattr(self, field_name, None)
+            if dt is not None and dt.tzinfo is not None:
+                setattr(self, field_name, dt.replace(tzinfo=None))
+        return self
+
 
 class ActivityResponse(ActivityBase):
     """Activity response schema."""
     id: int
+    avg_rating: Optional[float] = None
+    feedback_count: int = 0
     created_at: datetime
 
     class Config:

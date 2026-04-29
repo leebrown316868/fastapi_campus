@@ -57,6 +57,7 @@ class UserResponse(UserBase):
     show_avatar_in_lost_item: bool = True
     show_email_in_lost_item: bool = False
     show_phone_in_lost_item: bool = False
+    total_points: int = 0
     created_at: datetime
 
     class Config:
