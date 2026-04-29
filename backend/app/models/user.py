@@ -22,6 +22,7 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    total_points: Mapped[int] = mapped_column(default=0)
     # Privacy settings for lost & found
     show_name_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=True)
     show_avatar_in_lost_item: Mapped[bool] = mapped_column(Boolean, default=True)
