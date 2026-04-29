@@ -12,6 +12,9 @@ class NotificationBase(BaseModel):
     is_important: bool = False
     attachment: Optional[str] = None
     attachment_name: Optional[str] = None
+    target_grades: Optional[list[str]] = None
+    target_departments: Optional[list[str]] = None
+    target_majors: Optional[list[str]] = None
 
 
 class NotificationCreate(NotificationBase):
@@ -34,6 +37,9 @@ class NotificationResponse(NotificationBase):
     created_at: datetime
     attachment: Optional[str] = None
     attachment_name: Optional[str] = None
+    target_grades: Optional[list[str]] = None
+    target_departments: Optional[list[str]] = None
+    target_majors: Optional[list[str]] = None
 
     class Config:
         from_attributes = True

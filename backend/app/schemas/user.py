@@ -27,6 +27,8 @@ class UserUpdate(BaseModel):
     major: Optional[str] = None
     bio: Optional[str] = None
     phone: Optional[str] = None
+    grade: Optional[str] = None
+    department: Optional[str] = None
     avatar: Optional[str] = None
     # Privacy settings
     show_name_in_lost_item: Optional[bool] = None
@@ -50,6 +52,8 @@ class UserResponse(UserBase):
     major: Optional[str] = None
     bio: Optional[str] = None
     phone: Optional[str] = None
+    grade: Optional[str] = None
+    department: Optional[str] = None
     is_active: bool
     is_verified: bool
     # Privacy settings
