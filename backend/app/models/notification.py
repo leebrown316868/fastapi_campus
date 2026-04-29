@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Boolean, Text, ForeignKey, Index
+from sqlalchemy import JSON, String, Boolean, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -24,8 +24,11 @@ class Notification(Base):
     is_important: Mapped[bool] = mapped_column(Boolean, default=False)
     attachment: Mapped[str] = mapped_column(String(500), nullable=True)  # 文件URL
     attachment_name: Mapped[str] = mapped_column(String(200), nullable=True)  # 原始文件名
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    target_grades: Mapped[list] = mapped_column(JSON, default=list)
+    target_departments: Mapped[list] = mapped_column(JSON, default=list)
+    target_majors: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     def __repr__(self) -> str:
         return f"<Notification(id={self.id}, title={self.title})>"
