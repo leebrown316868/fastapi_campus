@@ -138,6 +138,8 @@ async def import_users(
     - student_id (optional)
     - role (optional, defaults to 'user')
     - major (optional)
+    - grade (optional)
+    - department (optional)
     - password (optional, defaults to '123456')
     """
     # Check file type
@@ -190,6 +192,8 @@ async def import_users(
                     student_id=str(row.get('student_id', '')).strip() or None,
                     role=str(row.get('role', 'user')).strip() if pd.notna(row.get('role')) else 'user',
                     major=str(row.get('major', '')).strip() or None if pd.notna(row.get('major')) else None,
+                    grade=str(row.get('grade', '')).strip() or None if pd.notna(row.get('grade')) else None,
+                    department=str(row.get('department', '')).strip() or None if pd.notna(row.get('department')) else None,
                     hashed_password=get_password_hash(str(row.get('password', '123456')).strip()),
                     is_verified=True
                 )
@@ -329,6 +333,8 @@ async def export_users(
             "邮箱": user.email,
             "角色": user.role,
             "专业": user.major or "",
+            "年级": user.grade or "",
+            "院系": user.department or "",
             "状态": "启用" if user.is_active else "禁用",
             "注册时间": user.created_at.strftime("%Y-%m-%d %H:%M:%S")
         })
