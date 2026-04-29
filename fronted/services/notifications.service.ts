@@ -13,6 +13,9 @@ export interface Notification {
   attachment_name?: string;
   time: string;
   created_at: string;
+  target_grades?: string[] | null;
+  target_departments?: string[] | null;
+  target_majors?: string[] | null;
 }
 
 export const notificationsService = {
@@ -55,6 +58,9 @@ export const notificationsService = {
     is_important?: boolean;
     attachment?: string;
     attachment_name?: string;
+    target_grades?: string[] | null;
+    target_departments?: string[] | null;
+    target_majors?: string[] | null;
   }): Promise<Notification> {
     return apiClient.post<Notification>('/api/notifications', data);
   },

@@ -37,7 +37,12 @@ const Publish: React.FC = () => {
     content: '',
     location: '',
     is_important: false,
+    target_grades: [] as string[],
+    target_departments: [] as string[],
+    target_majors: [] as string[],
   });
+
+  const [targetInputs, setTargetInputs] = useState({ grades: '', departments: '', majors: '' });
 
   // 附件上传状态
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -189,6 +194,9 @@ const Publish: React.FC = () => {
             avatar: user.avatar || null,
             attachment: attachmentUrl,
             attachment_name: attachmentName,
+            target_grades: courseForm.target_grades.length > 0 ? courseForm.target_grades : null,
+            target_departments: courseForm.target_departments.length > 0 ? courseForm.target_departments : null,
+            target_majors: courseForm.target_majors.length > 0 ? courseForm.target_majors : null,
           });
           showToast('课程通知发布成功！', 'success');
           navigate('/notifications');
@@ -360,6 +368,116 @@ const Publish: React.FC = () => {
                     标记为重要通知
                   </span>
                 </label>
+              </div>
+            </div>
+
+            {/* 目标人群 */}
+            <div className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100">
+              <h4 className="text-sm font-bold text-blue-900 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-600">groups</span>
+                目标人群（留空则推送给所有人）
+              </h4>
+
+              {/* 年级 */}
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-slate-600 mb-2">年级</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {courseForm.target_grades.map((g, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                      {g}
+                      <button type="button" onClick={() => setCourseForm({
+                        ...courseForm,
+                        target_grades: courseForm.target_grades.filter((_, j) => j !== i)
+                      })} className="hover:text-red-500">&times;</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text" placeholder="如: 2024级 (回车添加)"
+                    value={targetInputs.grades}
+                    onChange={(e) => setTargetInputs({ ...targetInputs, grades: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const v = targetInputs.grades.trim();
+                        if (v && !courseForm.target_grades.includes(v)) {
+                          setCourseForm({ ...courseForm, target_grades: [...courseForm.target_grades, v] });
+                          setTargetInputs({ ...targetInputs, grades: '' });
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/70 border border-slate-200 text-sm outline-none focus:border-blue-400"
+                  />
+                </div>
+              </div>
+
+              {/* 院系 */}
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-slate-600 mb-2">院系</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {courseForm.target_departments.map((d, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                      {d}
+                      <button type="button" onClick={() => setCourseForm({
+                        ...courseForm,
+                        target_departments: courseForm.target_departments.filter((_, j) => j !== i)
+                      })} className="hover:text-red-500">&times;</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text" placeholder="如: 计算机学院 (回车添加)"
+                    value={targetInputs.departments}
+                    onChange={(e) => setTargetInputs({ ...targetInputs, departments: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const v = targetInputs.departments.trim();
+                        if (v && !courseForm.target_departments.includes(v)) {
+                          setCourseForm({ ...courseForm, target_departments: [...courseForm.target_departments, v] });
+                          setTargetInputs({ ...targetInputs, departments: '' });
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/70 border border-slate-200 text-sm outline-none focus:border-blue-400"
+                  />
+                </div>
+              </div>
+
+              {/* 专业 */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-2">专业</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {courseForm.target_majors.map((m, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                      {m}
+                      <button type="button" onClick={() => setCourseForm({
+                        ...courseForm,
+                        target_majors: courseForm.target_majors.filter((_, j) => j !== i)
+                      })} className="hover:text-red-500">&times;</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text" placeholder="如: 计算机科学与技术 (回车添加)"
+                    value={targetInputs.majors}
+                    onChange={(e) => setTargetInputs({ ...targetInputs, majors: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const v = targetInputs.majors.trim();
+                        if (v && !courseForm.target_majors.includes(v)) {
+                          setCourseForm({ ...courseForm, target_majors: [...courseForm.target_majors, v] });
+                          setTargetInputs({ ...targetInputs, majors: '' });
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/70 border border-slate-200 text-sm outline-none focus:border-blue-400"
+                  />
+                </div>
               </div>
             </div>
 

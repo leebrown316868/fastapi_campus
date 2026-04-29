@@ -7,6 +7,7 @@ import { usersService } from '../services/users.service';
 import activityRegistrationsService, { ActivityRegistration } from '../services/activityRegistrations.service';
 import { showToast } from '../components/Toast';
 import { splitDatetime, combineDatetime } from '../utils/datetime';
+import { resolveImageUrl } from '../services/uploads.service';
 
 type TabType = 'overview' | 'users' | 'notifications' | 'activities' | 'lost-found' | 'pending-review';
 type EditModalType = 'notification' | 'activity' | 'lost-item' | null;
@@ -535,6 +536,28 @@ const AdminDashboard: React.FC = () => {
                       标记为重要通知
                     </span>
                   </label>
+                </div>
+                <div className="space-y-3 bg-blue-50/50 rounded-xl p-4 border border-blue-100">
+                  <h4 className="text-xs font-bold text-blue-900 flex items-center gap-1">
+                    <span className="material-symbols-outlined" style={{fontSize:'16px'}}>groups</span>
+                    目标人群（编辑暂不支持，请查看当前设置）
+                  </h4>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {editModal.item.target_grades?.length > 0 && editModal.item.target_grades.map((g: string, i: number) => (
+                      <span key={i} className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">年级: {g}</span>
+                    ))}
+                    {editModal.item.target_departments?.length > 0 && editModal.item.target_departments.map((d: string, i: number) => (
+                      <span key={i} className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">院系: {d}</span>
+                    ))}
+                    {editModal.item.target_majors?.length > 0 && editModal.item.target_majors.map((m: string, i: number) => (
+                      <span key={i} className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">专业: {m}</span>
+                    ))}
+                    {(!editModal.item.target_grades || editModal.item.target_grades.length === 0) &&
+                     (!editModal.item.target_departments || editModal.item.target_departments.length === 0) &&
+                     (!editModal.item.target_majors || editModal.item.target_majors.length === 0) && (
+                      <span className="text-slate-400">推送给所有人</span>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-slate-900">附件</label>
@@ -1502,7 +1525,7 @@ const AdminDashboard: React.FC = () => {
                     />
                     <div className="size-16 rounded-xl overflow-hidden">
                       {item.image ? (
-                        <img src={item.image} className="w-full h-full object-cover" alt="" />
+                        <img src={resolveImageUrl(item.image)} className="w-full h-full object-cover" alt="" />
                       ) : (
                         <div className="w-full h-full bg-slate-100 flex items-center justify-center">
                           <span className="material-symbols-outlined text-slate-300">event</span>
@@ -1787,7 +1810,7 @@ const AdminDashboard: React.FC = () => {
                     />
                     {item.images?.[0] ? (
                       <div className="size-16 rounded-xl overflow-hidden">
-                        <img src={item.images[0]} className="w-full h-full object-cover" alt="" />
+                        <img src={resolveImageUrl(item.images[0])} className="w-full h-full object-cover" alt="" />
                       </div>
                     ) : (
                       <div className="size-16 rounded-xl bg-slate-100 flex items-center justify-center">
@@ -1882,7 +1905,7 @@ const AdminDashboard: React.FC = () => {
                       {/* Thumbnail */}
                       {item.images && item.images.length > 0 ? (
                         <img
-                          src={item.images[0]}
+                          src={resolveImageUrl(item.images[0])}
                           alt={item.title}
                           className="size-24 rounded-xl object-cover flex-shrink-0"
                         />
