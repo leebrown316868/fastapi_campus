@@ -10,7 +10,7 @@ import { userNotificationsService } from '../services/userNotifications.service'
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
 
-type TabType = 'posts' | 'notifications' | 'edit-profile' | 'privacy-settings' | 'change-password';
+type TabType = 'posts' | 'notifications' | 'edit-profile' | 'privacy-settings' | 'change-password' | 'points';
 
 const Profile: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
@@ -27,6 +27,7 @@ const Profile: React.FC = () => {
   const [avatarPreview, setAvatarPreview] = useState<string>(user?.avatar || '');
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [visible, setVisible] = useState(false);
+  const [pointsData, setPointsData] = useState<{ items: any[]; total_points: number }>({ items: [], total_points: 0 });
 
   useEffect(() => {
     setVisible(true);
@@ -35,7 +36,7 @@ const Profile: React.FC = () => {
   // Handle tab from URL params
   useEffect(() => {
     const tab = searchParams.get('tab') as TabType;
-    if (tab && ['posts', 'notifications', 'edit-profile', 'privacy-settings', 'change-password'].includes(tab)) {
+    if (tab && ['posts', 'notifications', 'edit-profile', 'privacy-settings', 'change-password', 'points'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -44,6 +45,8 @@ const Profile: React.FC = () => {
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     major: user?.major || '',
+    grade: user?.grade || '',
+    department: user?.department || '',
     bio: user?.bio || '',
     phone: user?.phone || '',
     avatar: user?.avatar || '',
@@ -110,12 +113,35 @@ const Profile: React.FC = () => {
     loadUserNotifications();
   }, [user, activeTab]);
 
+  // Load points when points tab is active
+  useEffect(() => {
+    const loadPoints = async () => {
+      if (!user || activeTab !== 'points') return;
+      try {
+        const token = localStorage.getItem('token');
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiBase}/api/users/me/points?limit=50`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setPointsData(data);
+        }
+      } catch (error) {
+        console.error('Failed to load points:', error);
+      }
+    };
+    loadPoints();
+  }, [user, activeTab]);
+
   // Update profile form when user data changes
   useEffect(() => {
     if (user) {
       setProfileForm({
         name: user.name || '',
         major: user.major || '',
+        grade: user.grade || '',
+        department: user.department || '',
         bio: user.bio || '',
         phone: user.phone || '',
         avatar: user.avatar || '',
@@ -292,6 +318,10 @@ const Profile: React.FC = () => {
                     <span className="material-symbols-outlined text-sm align-middle mr-1">mail</span>
                     {user.email}
                   </span>
+                  <span className="px-4 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700 shadow-sm">
+                    <span className="material-symbols-outlined text-sm align-middle mr-1">stars</span>
+                    {(user as any).totalPoints || 0} 积分
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -358,6 +388,16 @@ const Profile: React.FC = () => {
                 }`}
               >
                 修改密码
+              </button>
+              <button
+                onClick={() => setActiveTab('points')}
+                className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${
+                  activeTab === 'points'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                积分
               </button>
             </div>
 
@@ -591,6 +631,28 @@ const Profile: React.FC = () => {
                       onChange={(e) => setProfileForm({ ...profileForm, major: e.target.value })}
                       className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
                       placeholder="例如：计算机科学与技术"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-slate-900">年级</label>
+                    <input
+                      type="text"
+                      value={profileForm.grade}
+                      onChange={(e) => setProfileForm({ ...profileForm, grade: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
+                      placeholder="例如：2024级"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-slate-900">院系</label>
+                    <input
+                      type="text"
+                      value={profileForm.department}
+                      onChange={(e) => setProfileForm({ ...profileForm, department: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
+                      placeholder="例如：计算机学院"
                     />
                   </div>
 
@@ -830,6 +892,58 @@ const Profile: React.FC = () => {
                     )}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Points Tab */}
+            {activeTab === 'points' && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 p-6 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
+                  <div className="size-16 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg">
+                    <span className="material-symbols-outlined text-3xl">stars</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">总积分</p>
+                    <p className="text-3xl font-black text-slate-900">{pointsData.total_points || 0}</p>
+                  </div>
+                </div>
+
+                {pointsData.items.length === 0 ? (
+                  <div className="text-center py-12">
+                    <span className="material-symbols-outlined text-5xl text-slate-300" style={{ fontSize: '48px' }}>inbox</span>
+                    <p className="mt-3 text-slate-500 font-medium">暂无积分记录</p>
+                    <p className="text-xs text-slate-400 mt-1">报名活动、签到和提交反馈可获得积分</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pointsData.items.map((record: any) => {
+                      const reasonLabels: Record<string, string> = {
+                        registration: '报名活动',
+                        attendance: '签到',
+                        feedback: '提交反馈',
+                      };
+                      const reasonColors: Record<string, string> = {
+                        registration: 'bg-emerald-50 text-emerald-600',
+                        attendance: 'bg-blue-50 text-blue-600',
+                        feedback: 'bg-purple-50 text-purple-600',
+                      };
+                      return (
+                        <div key={record.id} className="flex items-center justify-between p-4 rounded-xl bg-white/40 hover:bg-white/70 transition-all">
+                          <div className="flex items-center gap-3">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-bold ${reasonColors[record.reason] || 'bg-slate-100 text-slate-600'}`}>
+                              {reasonLabels[record.reason] || record.reason}
+                            </span>
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{record.activity_title || '积分记录'}</p>
+                              <p className="text-xs text-slate-500">{new Date(record.created_at).toLocaleDateString('zh-CN')}</p>
+                            </div>
+                          </div>
+                          <span className="text-lg font-black text-amber-600">+{record.points}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </section>

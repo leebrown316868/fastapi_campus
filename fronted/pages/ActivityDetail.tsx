@@ -4,6 +4,7 @@ import { activitiesService } from '../services/activities.service';
 import activityRegistrationsService, { ActivityRegistration } from '../services/activityRegistrations.service';
 import { useAuth } from '../contexts/AuthContext';
 import { showToast } from '../components/Toast';
+import { resolveImageUrl } from '../services/uploads.service';
 
 const ActivityDetail: React.FC = () => {
   const { id } = useParams();
@@ -14,6 +15,10 @@ const ActivityDetail: React.FC = () => {
   const [myRegistrations, setMyRegistrations] = useState<ActivityRegistration[]>([]);
   const [isRegistering, setIsRegistering] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
+  const [feedbackForm, setFeedbackForm] = useState({ rating: 0, comment: '' });
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
 
   useEffect(() => {
     const fetchActivity = async () => {
@@ -49,6 +54,23 @@ const ActivityDetail: React.FC = () => {
 
     fetchMyRegistrations();
   }, [user]);
+
+  useEffect(() => {
+    const fetchFeedback = async () => {
+      if (!id) return;
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiBase}/api/activities/${id}/feedback`);
+        if (response.ok) {
+          const data = await response.json();
+          setFeedback(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch feedback:', error);
+      }
+    };
+    fetchFeedback();
+  }, [id]);
 
   // Check if user has registered for this activity
   const activityIdNum = parseInt(id || '0');
@@ -202,7 +224,7 @@ const ActivityDetail: React.FC = () => {
       <div className="glass-card rounded-[2.5rem] overflow-hidden border-0 shadow-2xl">
         <div className="aspect-[21/9] w-full relative overflow-hidden">
           {activity.image ? (
-            <img src={activity.image} alt={activity.title} className="w-full h-full object-cover" />
+            <img src={resolveImageUrl(activity.image)} alt={activity.title} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-primary/20 to-indigo-500/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-6xl text-primary/40">event</span>
@@ -387,6 +409,117 @@ const ActivityDetail: React.FC = () => {
                   </ul>
                 )}
               </div>
+
+              {/* Feedback Section — shown after activity ends */}
+              {activityStatus === 'finished' && (
+                <div className="mt-8 pt-6 border-t border-slate-100">
+                  <h4 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-amber-500" style={{fontSize:'18px'}}>reviews</span>
+                    活动反馈
+                    {feedback && feedback.count > 0 && (
+                      <span className="text-xs font-medium text-slate-400 ml-1">
+                        ({feedback.count}条评价 · {feedback.avg_rating}分)
+                      </span>
+                    )}
+                  </h4>
+
+                  {/* Submit feedback form */}
+                  {hasRegistered && (
+                    <div className="mb-4 p-4 rounded-xl bg-amber-50/50 border border-amber-100">
+                      <p className="text-xs font-bold text-slate-700 mb-3">为本次活动评分</p>
+                      <div className="flex items-center gap-1 mb-3">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setFeedbackForm({ ...feedbackForm, rating: star })}
+                            className={`text-2xl transition-all ${star <= feedbackForm.rating ? 'text-amber-400 scale-110' : 'text-slate-300 hover:text-amber-300'}`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        placeholder="说点什么吧...（选填）"
+                        value={feedbackForm.comment}
+                        onChange={(e) => setFeedbackForm({ ...feedbackForm, comment: e.target.value })}
+                        maxLength={500}
+                        className="w-full px-4 py-3 rounded-xl bg-white/70 border border-slate-200 text-sm outline-none focus:border-amber-400 resize-none min-h-[60px]"
+                      />
+                      {feedbackError && <p className="text-xs text-red-500 mt-1">{feedbackError}</p>}
+                      <button
+                        type="button"
+                        disabled={!feedbackForm.rating || isSubmittingFeedback}
+                        onClick={async () => {
+                          if (!feedbackForm.rating || isSubmittingFeedback) return;
+                          setIsSubmittingFeedback(true);
+                          setFeedbackError('');
+                          try {
+                            const token = localStorage.getItem('token');
+                            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                            const response = await fetch(`${apiBase}/api/activities/${id}/feedback`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                              },
+                              body: JSON.stringify({ rating: feedbackForm.rating, comment: feedbackForm.comment || null }),
+                            });
+                            if (!response.ok) {
+                              const err = await response.json();
+                              throw new Error(err.detail || '提交失败');
+                            }
+                            showToast('感谢您的反馈！', 'success');
+                            setFeedbackForm({ rating: 0, comment: '' });
+                            // Refresh feedback
+                            const fbRes = await fetch(`${apiBase}/api/activities/${id}/feedback`);
+                            if (fbRes.ok) setFeedback(await fbRes.json());
+                          } catch (error: any) {
+                            setFeedbackError(error.message || '提交失败');
+                          } finally {
+                            setIsSubmittingFeedback(false);
+                          }
+                        }}
+                        className={`w-full mt-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          feedbackForm.rating && !isSubmittingFeedback
+                            ? 'bg-amber-500 text-white hover:bg-amber-600'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {isSubmittingFeedback ? '提交中...' : '提交评价'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Existing feedback */}
+                  {feedback && feedback.recent_comments?.length > 0 && (
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {feedback.recent_comments.map((fb: any) => (
+                        <div key={fb.id} className="p-3 rounded-xl bg-white/50">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-slate-700">{fb.user_name}</span>
+                            <span className="text-xs text-amber-400">{'★'.repeat(fb.rating)}{'☆'.repeat(5-fb.rating)}</span>
+                          </div>
+                          {fb.comment && <p className="text-xs text-slate-600">{fb.comment}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Average rating display when no comments yet */}
+                  {feedback && feedback.count > 0 && (!feedback.recent_comments || feedback.recent_comments.length === 0) && (
+                    <div className="text-center py-4">
+                      <p className="text-2xl font-black text-amber-500">{feedback.avg_rating}</p>
+                      <p className="text-xs text-slate-500">共 {feedback.count} 条评价</p>
+                      <div className="flex justify-center gap-1 mt-1 text-sm text-amber-400">
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s}>{s <= Math.round(feedback.avg_rating) ? '★' : '☆'}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </aside>
         </div>
