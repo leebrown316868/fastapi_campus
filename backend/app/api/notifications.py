@@ -66,6 +66,9 @@ async def get_notifications(
             "is_important": n.is_important,
             "attachment": n.attachment,
             "attachment_name": n.attachment_name,
+            "target_grades": n.target_grades,
+            "target_departments": n.target_departments,
+            "target_majors": n.target_majors,
             "time": format_time(n.created_at),
             "created_at": n.created_at,
         }
@@ -102,6 +105,9 @@ async def get_notification(
         is_important=notification.is_important,
         attachment=notification.attachment,
         attachment_name=notification.attachment_name,
+        target_grades=notification.target_grades,
+        target_departments=notification.target_departments,
+        target_majors=notification.target_majors,
         time=format_time(notification.created_at),
         created_at=notification.created_at,
     )
@@ -174,6 +180,11 @@ async def create_notification(
         avatar=new_notification.avatar,
         location=new_notification.location,
         is_important=new_notification.is_important,
+        attachment=new_notification.attachment,
+        attachment_name=new_notification.attachment_name,
+        target_grades=new_notification.target_grades,
+        target_departments=new_notification.target_departments,
+        target_majors=new_notification.target_majors,
         time=format_time(new_notification.created_at),
         created_at=new_notification.created_at,
     )
@@ -238,6 +249,9 @@ async def update_notification(
         is_important=notification.is_important,
         attachment=notification.attachment,
         attachment_name=notification.attachment_name,
+        target_grades=notification.target_grades,
+        target_departments=notification.target_departments,
+        target_majors=notification.target_majors,
         time=format_time(notification.created_at),
         created_at=notification.created_at,
     )
