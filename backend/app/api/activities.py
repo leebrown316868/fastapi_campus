@@ -2,7 +2,7 @@ from typing import List, Optional, Annotated
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete as sql_delete
+from sqlalchemy import select, delete as sql_delete, func
 
 from app.db.database import get_db
 from app.models.user import User
@@ -52,7 +52,39 @@ async def get_activities(
     if status_updated:
         await db.commit()
 
-    return [ActivityResponse.model_validate(a) for a in activities]
+    # Calculate feedback stats
+    from app.models.activity_feedback import ActivityFeedback
+    activity_ids = [a.id for a in activities]
+    feedback_stats = {}
+    if activity_ids:
+        fb_result = await db.execute(
+            select(
+                ActivityFeedback.activity_id,
+                func.avg(ActivityFeedback.rating).label("avg_r"),
+                func.count(ActivityFeedback.id).label("cnt"),
+            )
+            .where(ActivityFeedback.activity_id.in_(activity_ids))
+            .group_by(ActivityFeedback.activity_id)
+        )
+        for row in fb_result:
+            feedback_stats[row.activity_id] = {
+                "avg_rating": round(float(row.avg_r), 1) if row.avg_r else None,
+                "feedback_count": row.cnt,
+            }
+
+    return [
+        ActivityResponse(
+            id=a.id, title=a.title, description=a.description, date=a.date,
+            location=a.location, organizer=a.organizer, notes=a.notes,
+            image=a.image, category=a.category, capacity=a.capacity,
+            registration_start=a.registration_start, registration_end=a.registration_end,
+            activity_start=a.activity_start, activity_end=a.activity_end,
+            status=a.status, created_at=a.created_at,
+            avg_rating=feedback_stats.get(a.id, {}).get("avg_rating"),
+            feedback_count=feedback_stats.get(a.id, {}).get("feedback_count", 0),
+        )
+        for a in activities
+    ]
 
 
 @router.get("/{activity_id}", response_model=ActivityResponse)
@@ -78,7 +110,27 @@ async def get_activity(
         activity.status = new_status
         await db.commit()
 
-    return ActivityResponse.model_validate(activity)
+    # Fetch feedback stats
+    from app.models.activity_feedback import ActivityFeedback
+    fb_result = await db.execute(
+        select(func.avg(ActivityFeedback.rating), func.count(ActivityFeedback.id))
+        .where(ActivityFeedback.activity_id == activity_id)
+    )
+    avg_r, fb_count = fb_result.one()
+
+    return ActivityResponse(
+        id=activity.id, title=activity.title, description=activity.description,
+        date=activity.date, location=activity.location, organizer=activity.organizer,
+        notes=activity.notes, image=activity.image, category=activity.category,
+        capacity=activity.capacity,
+        registration_start=activity.registration_start,
+        registration_end=activity.registration_end,
+        activity_start=activity.activity_start,
+        activity_end=activity.activity_end,
+        status=activity.status, created_at=activity.created_at,
+        avg_rating=round(float(avg_r), 1) if avg_r else None,
+        feedback_count=fb_count or 0,
+    )
 
 
 @router.post("", response_model=ActivityResponse, status_code=status.HTTP_201_CREATED)
@@ -162,6 +214,12 @@ async def delete_activity(
         sql_delete(ActivityRegistration).where(ActivityRegistration.activity_id == activity_id)
     )
 
+    # Delete feedback for this activity
+    from app.models.activity_feedback import ActivityFeedback
+    await db.execute(
+        sql_delete(ActivityFeedback).where(ActivityFeedback.activity_id == activity_id)
+    )
+
     # Then delete the activity
     await db.delete(activity)
     await db.commit()
@@ -222,6 +280,12 @@ async def batch_delete_activities(
     from app.models.activity_registration import ActivityRegistration
     await db.execute(
         sql_delete(ActivityRegistration).where(ActivityRegistration.activity_id.in_(activity_ids))
+    )
+
+    # Delete feedback for these activities
+    from app.models.activity_feedback import ActivityFeedback
+    await db.execute(
+        sql_delete(ActivityFeedback).where(ActivityFeedback.activity_id.in_(activity_ids))
     )
 
     # Then delete the activities

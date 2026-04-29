@@ -51,6 +51,8 @@ class ActivityUpdate(BaseModel):
 class ActivityResponse(ActivityBase):
     """Activity response schema."""
     id: int
+    avg_rating: Optional[float] = None
+    feedback_count: int = 0
     created_at: datetime
 
     class Config:
