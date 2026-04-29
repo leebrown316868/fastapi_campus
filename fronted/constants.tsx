@@ -18,6 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '课程通知', path: '/notifications', icon: 'school' },
   { label: '活动公告', path: '/activities', icon: 'campaign' },
   { label: '失物招领', path: '/lost-and-found', icon: 'search' },
+  { label: '排行', path: '/leaderboard', icon: 'leaderboard' },
 ];
 
 export const MOCK_ACTIVITIES: Activity[] = [

@@ -23,6 +23,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 
 // 加载动画组件
 const LoadingSpinner = () => (
@@ -82,6 +83,7 @@ const App: React.FC = () => {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/edit" element={<ProfileEdit />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route
                       path="/admin"
                       element={
