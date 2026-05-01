@@ -23,6 +23,20 @@ CurrentAdmin = Annotated[User, Depends(get_current_admin)]
 DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+@router.get("/profile-options")
+async def get_profile_options(db: DatabaseSession = None):
+    """Get distinct grade/department/major values from existing users (for target audience selector)."""
+    from sqlalchemy import distinct
+    grades_result = await db.execute(select(distinct(User.grade)).where(User.grade.isnot(None)).order_by(User.grade))
+    depts_result = await db.execute(select(distinct(User.department)).where(User.department.isnot(None)).order_by(User.department))
+    majors_result = await db.execute(select(distinct(User.major)).where(User.major.isnot(None)).order_by(User.major))
+    return {
+        "grades": [r[0] for r in grades_result if r[0]],
+        "departments": [r[0] for r in depts_result if r[0]],
+        "majors": [r[0] for r in majors_result if r[0]],
+    }
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_profile(
     current_user: CurrentUser,

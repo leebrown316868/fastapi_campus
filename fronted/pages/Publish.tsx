@@ -47,6 +47,28 @@ const Publish: React.FC = () => {
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Profile suggestions for target audience
+  const [gradeSuggestions, setGradeSuggestions] = useState<string[]>([]);
+  const [deptSuggestions, setDeptSuggestions] = useState<string[]>([]);
+  const [majorSuggestions, setMajorSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (user?.role !== 'admin') return;
+      try {
+        const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${apiBase}/api/users/profile-options`);
+        if (res.ok) {
+          const data = await res.json();
+          setGradeSuggestions(data.grades || []);
+          setDeptSuggestions(data.departments || []);
+          setMajorSuggestions(data.majors || []);
+        }
+      } catch (e) { /* ignore */ }
+    };
+    fetchSuggestions();
+  }, [user]);
+
   // 活动公告表单状态
   const [activityForm, setActivityForm] = useState({
     title: '',
@@ -384,71 +406,27 @@ const Publish: React.FC = () => {
               </p>
 
               <div className="space-y-4">
-                {/* 年级 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-2">年级</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['2024级', '2025级', '2023级', '2022级', '2021级'].map(g => {
-                      const active = courseForm.target_grades.includes(g);
-                      return (
-                        <button key={g} type="button" onClick={() => setCourseForm({
-                          ...courseForm,
-                          target_grades: active
-                            ? courseForm.target_grades.filter(v => v !== g)
-                            : [...courseForm.target_grades, g]
-                        })}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          active ? 'bg-blue-500 text-white shadow' : 'bg-white/70 text-slate-600 hover:bg-blue-100'
-                        }`}
-                        >{g}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 院系 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-2">院系</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['计算机学院', '经管学院', '外语学院', '数理学院', '机电学院', '人文学院', '艺术学院'].map(d => {
-                      const active = courseForm.target_departments.includes(d);
-                      return (
-                        <button key={d} type="button" onClick={() => setCourseForm({
-                          ...courseForm,
-                          target_departments: active
-                            ? courseForm.target_departments.filter(v => v !== d)
-                            : [...courseForm.target_departments, d]
-                        })}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          active ? 'bg-emerald-500 text-white shadow' : 'bg-white/70 text-slate-600 hover:bg-emerald-100'
-                        }`}
-                        >{d}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 专业 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-2">专业 <span className="text-slate-400 font-normal">（点击选择，可多选）</span></label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['计算机科学与技术', '软件工程', '信息安全', '数据科学', '工商管理', '会计学', '英语', '日语', '机械工程', '电气工程'].map(m => {
-                      const active = courseForm.target_majors.includes(m);
-                      return (
-                        <button key={m} type="button" onClick={() => setCourseForm({
-                          ...courseForm,
-                          target_majors: active
-                            ? courseForm.target_majors.filter(v => v !== m)
-                            : [...courseForm.target_majors, m]
-                        })}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          active ? 'bg-purple-500 text-white shadow' : 'bg-white/70 text-slate-600 hover:bg-purple-100'
-                        }`}
-                        >{m}</button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <TagInput
+                  label="年级"
+                  tags={courseForm.target_grades}
+                  onAdd={(v) => setCourseForm({ ...courseForm, target_grades: [...courseForm.target_grades, v] })}
+                  onRemove={(v) => setCourseForm({ ...courseForm, target_grades: courseForm.target_grades.filter(t => t !== v) })}
+                  suggestions={gradeSuggestions}
+                />
+                <TagInput
+                  label="院系"
+                  tags={courseForm.target_departments}
+                  onAdd={(v) => setCourseForm({ ...courseForm, target_departments: [...courseForm.target_departments, v] })}
+                  onRemove={(v) => setCourseForm({ ...courseForm, target_departments: courseForm.target_departments.filter(t => t !== v) })}
+                  suggestions={deptSuggestions}
+                />
+                <TagInput
+                  label="专业"
+                  tags={courseForm.target_majors}
+                  onAdd={(v) => setCourseForm({ ...courseForm, target_majors: [...courseForm.target_majors, v] })}
+                  onRemove={(v) => setCourseForm({ ...courseForm, target_majors: courseForm.target_majors.filter(t => t !== v) })}
+                  suggestions={majorSuggestions}
+                />
               </div>
             </div>
 
@@ -1079,6 +1057,74 @@ const Publish: React.FC = () => {
         </div>
       </section>
       </main>
+    </div>
+  );
+};
+
+// Reusable tag input with suggestions
+const TagInput: React.FC<{
+  label: string;
+  tags: string[];
+  onAdd: (v: string) => void;
+  onRemove: (v: string) => void;
+  suggestions: string[];
+}> = ({ label, tags, onAdd, onRemove, suggestions }) => {
+  const [text, setText] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const add = (v: string) => {
+    const trimmed = v.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      onAdd(trimmed);
+      setText('');
+      setShowSuggestions(false);
+    }
+  };
+
+  const filtered = suggestions.filter(s =>
+    s.includes(text.trim()) && !tags.includes(s)
+  );
+
+  return (
+    <div>
+      <label className="block text-xs font-bold text-slate-600 mb-1.5">{label}</label>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {tags.map((t, i) => (
+          <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+            {t}
+            <button type="button" onClick={() => onRemove(t)} className="hover:text-red-500 leading-none">&times;</button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-1.5 relative">
+        <input
+          type="text"
+          placeholder={`输入或选择${label}...`}
+          value={text}
+          onChange={(e) => { setText(e.target.value); setShowSuggestions(true); }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(text); }}}
+          className="flex-1 px-3 py-2 rounded-lg bg-white/70 border border-slate-200 text-sm outline-none focus:border-blue-400"
+        />
+        <button
+          type="button"
+          onClick={() => add(text)}
+          className="px-3 py-2 rounded-lg bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition-colors"
+        >添加</button>
+        {showSuggestions && filtered.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 max-h-32 overflow-y-auto z-10">
+            {filtered.slice(0, 8).map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); add(s); }}
+                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium"
+              >{s}</button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
