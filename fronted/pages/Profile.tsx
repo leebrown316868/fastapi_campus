@@ -324,7 +324,7 @@ const Profile: React.FC = () => {
                   </span>
                   <span className="px-4 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700 shadow-sm">
                     <span className="material-symbols-outlined text-sm align-middle mr-1">stars</span>
-                    {(user as any).totalPoints || 0} 积分
+                    {user.totalPoints || 0} 积分
                   </span>
                 </div>
               </div>

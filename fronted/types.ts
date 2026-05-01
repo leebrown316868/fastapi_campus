@@ -57,9 +57,12 @@ export interface User {
   role: 'user' | 'admin' | 'publisher';
   avatar?: string;
   major?: string;
+  grade?: string;
+  department?: string;
   bio?: string;
   phone?: string;
   isVerified?: boolean;
+  totalPoints?: number;
   // Privacy settings
   showNameInLostItem?: boolean;
   showAvatarInLostItem?: boolean;
