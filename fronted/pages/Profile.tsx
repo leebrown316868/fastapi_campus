@@ -118,7 +118,7 @@ const Profile: React.FC = () => {
     const loadPoints = async () => {
       if (!user || activeTab !== 'points') return;
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
         const response = await fetch(`${apiBase}/api/users/me/points?limit=50`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},

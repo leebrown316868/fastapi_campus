@@ -455,7 +455,7 @@ const ActivityDetail: React.FC = () => {
                           setIsSubmittingFeedback(true);
                           setFeedbackError('');
                           try {
-                            const token = localStorage.getItem('token');
+                            const token = localStorage.getItem('auth_token');
                             const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
                             const response = await fetch(`${apiBase}/api/activities/${id}/feedback`, {
                               method: 'POST',
