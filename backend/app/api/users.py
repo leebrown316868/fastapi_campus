@@ -319,17 +319,17 @@ async def bulk_delete_users(
             detail="No users found"
         )
 
-    # Prevent deleting admins
+    # Prevent deleting yourself
     for user in users:
-        if user.role == "admin":
+        if user.id == current_admin.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot delete admin user: {user.email}"
+                detail="Cannot delete your own account"
             )
 
     user_ids = [u.id for u in users]
 
-    # Detach content — keep it, just unlink the deleted author
+    # Detach content
     from app.models.notification import Notification
     from app.models.activity import Activity
     from app.models.lost_item import LostItem
@@ -418,11 +418,11 @@ async def delete_user(
             detail="User not found"
         )
 
-    # Prevent deleting admins
-    if user.role == "admin":
+    # Prevent deleting yourself
+    if user.id == current_admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete admin users"
+            detail="Cannot delete your own account"
         )
 
     # Detach content — keep it, just unlink the deleted author
