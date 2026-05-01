@@ -161,7 +161,11 @@ const Profile: React.FC = () => {
 
     try {
       setIsSaving(true);
-      await usersService.updateMe(profileForm);
+      // Only editable fields
+      await usersService.updateMe({
+        phone: profileForm.phone,
+        bio: profileForm.bio,
+      });
       await refreshUser();
       showToast('个人资料更新成功！', 'success');
     } catch (error: any) {
@@ -607,9 +611,8 @@ const Profile: React.FC = () => {
                     <input
                       type="text"
                       value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl bg-white/50 border border-slate-200 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-slate-900"
-                      placeholder="请输入姓名"
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 outline-none text-slate-500 cursor-not-allowed"
                     />
                   </div>
 
@@ -624,59 +627,34 @@ const Profile: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-slate-900">
-                      专业
-                      {user.role !== 'admin' && <span className="text-xs text-slate-400 font-normal ml-1">（由管理员设置）</span>}
-                    </label>
+                    <label className="block text-sm font-bold text-slate-900">专业</label>
                     <input
                       type="text"
                       value={profileForm.major}
-                      onChange={(e) => setProfileForm({ ...profileForm, major: e.target.value })}
-                      disabled={user.role !== 'admin'}
-                      className={`w-full px-4 py-3 rounded-xl outline-none transition-all text-slate-900 ${
-                        user.role !== 'admin'
-                          ? 'bg-slate-100 border border-slate-200 cursor-not-allowed text-slate-500'
-                          : 'bg-white/50 border border-slate-200 focus:ring-4 focus:ring-primary/10 focus:border-primary'
-                      }`}
-                      placeholder="例如：计算机科学与技术"
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 outline-none text-slate-500 cursor-not-allowed"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-slate-900">
-                      年级
-                      {user.role !== 'admin' && <span className="text-xs text-slate-400 font-normal ml-1">（由管理员设置）</span>}
-                    </label>
+                    <label className="block text-sm font-bold text-slate-900">年级</label>
                     <input
                       type="text"
                       value={profileForm.grade}
-                      onChange={(e) => setProfileForm({ ...profileForm, grade: e.target.value })}
-                      disabled={user.role !== 'admin'}
-                      className={`w-full px-4 py-3 rounded-xl outline-none transition-all text-slate-900 ${
-                        user.role !== 'admin'
-                          ? 'bg-slate-100 border border-slate-200 cursor-not-allowed text-slate-500'
-                          : 'bg-white/50 border border-slate-200 focus:ring-4 focus:ring-primary/10 focus:border-primary'
-                      }`}
-                      placeholder="例如：2024级"
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 outline-none text-slate-500 cursor-not-allowed"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-slate-900">
-                      院系
-                      {user.role !== 'admin' && <span className="text-xs text-slate-400 font-normal ml-1">（由管理员设置）</span>}
-                    </label>
+                    <label className="block text-sm font-bold text-slate-900">院系</label>
                     <input
                       type="text"
                       value={profileForm.department}
-                      onChange={(e) => setProfileForm({ ...profileForm, department: e.target.value })}
-                      disabled={user.role !== 'admin'}
-                      className={`w-full px-4 py-3 rounded-xl outline-none transition-all text-slate-900 ${
-                        user.role !== 'admin'
-                          ? 'bg-slate-100 border border-slate-200 cursor-not-allowed text-slate-500'
-                          : 'bg-white/50 border border-slate-200 focus:ring-4 focus:ring-primary/10 focus:border-primary'
-                      }`}
-                      placeholder="例如：计算机学院"
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 outline-none text-slate-500 cursor-not-allowed"
+                    />
+                  </div>
                     />
                   </div>
 
