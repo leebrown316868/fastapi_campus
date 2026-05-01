@@ -655,8 +655,6 @@ const Profile: React.FC = () => {
                       className="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 outline-none text-slate-500 cursor-not-allowed"
                     />
                   </div>
-                    />
-                  </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-slate-900">手机号</label>
