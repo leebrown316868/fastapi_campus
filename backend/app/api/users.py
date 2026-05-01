@@ -296,7 +296,7 @@ async def bulk_update_users(
     return {"updated": updated_count}
 
 
-@router.delete("/bulk", response_model=dict)
+@router.post("/bulk-delete", response_model=dict)
 async def bulk_delete_users(
     bulk_data: UserBulkDelete,
     current_admin: CurrentAdmin = None,
