@@ -346,9 +346,9 @@ const AdminDashboard: React.FC = () => {
 
   const downloadTemplate = () => {
     const csv = `name,email,student_id,role,major,grade,department,password
-张三,zhangsan@example.com,2021001,user,计算机科学与技术,2024级,计算机学院,123456
-李四,lisi@example.com,2021002,user,软件工程,2024级,计算机学院,123456
-王五,wangwu@example.com,2021003,user,英语,2025级,外语学院,123456`;
+张三,zhangsan@example.com,2022211001,user,计算机科学与技术,,计算机学院,123456
+李四,lisi@example.com,2022211002,user,软件工程,,计算机学院,123456
+王五,wangwu@example.com,2023211003,user,英语,,外语学院,123456`;
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
