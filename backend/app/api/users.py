@@ -199,14 +199,20 @@ async def import_users(
                     results["failed"] += 1
                     continue
 
+                # Auto-infer grade from student_id (e.g. 2022211658 -> 2022级)
+                student_id = str(row.get('student_id', '')).strip()
+                grade = str(row.get('grade', '')).strip() if pd.notna(row.get('grade')) else None
+                if not grade and len(student_id) >= 4 and student_id[:4].isdigit():
+                    grade = f"{student_id[:4]}级"
+
                 # Create user
                 user = User(
                     name=str(row['name']).strip(),
                     email=str(row['email']).strip().lower(),
-                    student_id=str(row.get('student_id', '')).strip() or None,
+                    student_id=student_id or None,
                     role=str(row.get('role', 'user')).strip() if pd.notna(row.get('role')) else 'user',
                     major=str(row.get('major', '')).strip() or None if pd.notna(row.get('major')) else None,
-                    grade=str(row.get('grade', '')).strip() or None if pd.notna(row.get('grade')) else None,
+                    grade=grade,
                     department=str(row.get('department', '')).strip() or None if pd.notna(row.get('department')) else None,
                     hashed_password=get_password_hash(str(row.get('password', '123456')).strip()),
                     is_verified=True
