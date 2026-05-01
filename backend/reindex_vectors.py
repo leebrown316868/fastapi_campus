@@ -4,6 +4,7 @@
 用于首次迁移或索引损坏时。
 """
 import asyncio
+import json
 import sys
 sys.path.insert(0, ".")
 
@@ -31,6 +32,7 @@ async def main():
             "type": item.type,
             "category": item.category,
             "created_by": item.created_by,
+            "images": json.dumps(item.images or []),
         }
         for item in items
     ]

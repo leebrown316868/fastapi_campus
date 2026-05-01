@@ -144,6 +144,7 @@ async def unified_search(
                         "category": m["payload"].get("category"),
                         "location": m["payload"].get("location"),
                         "item_type": m["payload"].get("type"),
+                        "images": m["payload"].get("images", "[]"),
                     },
                 ))
         else:

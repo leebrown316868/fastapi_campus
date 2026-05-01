@@ -1,4 +1,5 @@
 from typing import List, Optional, Annotated
+import json
 from fastapi import APIRouter, HTTPException, status, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, delete as sql_delete
@@ -187,6 +188,7 @@ async def create_lost_item(
             item_type=new_item.type,
             category=new_item.category,
             created_by=new_item.created_by,
+            images=json.dumps(new_item.images or []),
         )
     except Exception as e:
         import logging
@@ -268,6 +270,7 @@ async def update_lost_item(
             item_type=item.type,
             category=item.category,
             created_by=item.created_by,
+            images=json.dumps(item.images or []),
         )
     except Exception as e:
         import logging

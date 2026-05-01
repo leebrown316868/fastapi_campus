@@ -1,7 +1,7 @@
 # 测试体系文档
 
 > 接口正确性测试 + 响应时间测试 + 并发访问测试
-> 日期：2026-04-06 | 工具：pytest + pytest-asyncio + httpx
+> 日期：2026-04-07 | 工具：pytest 8.3.4 + pytest-asyncio 0.24.0 + httpx
 
 ---
 
@@ -15,10 +15,11 @@
 
 | 项目 | 配置 |
 |------|------|
+| 操作系统 | Windows 11 Home 10.0.22631 |
 | Python | 3.12.2 |
 | 测试框架 | pytest 8.3.4 + pytest-asyncio 0.24.0 |
 | HTTP 客户端 | httpx（异步） |
-| 后端 | FastAPI 0.115 + MySQL 8.4 |
+| 后端 | FastAPI 0.115 + aiosqlite + SQLite |
 | 测试模式 | 连接已运行的后端服务（非 ASGI 模拟） |
 | 运行命令 | `python -m pytest tests/ -v` |
 
@@ -29,8 +30,8 @@ backend/
 ├── tests/
 │   ├── conftest.py              # 共享 fixtures（client, tokens, headers）
 │   ├── pytest.ini               # pytest 配置（asyncio_mode=auto）
-│   ├── test_api_functional.py   # 6.2 功能测试（36项）
-│   └── test_api_performance.py  # 6.3 性能测试（9项）
+│   ├── test_api_functional.py   # 4 功能测试（36项）
+│   └── test_api_performance.py  # 5 性能测试（9项）
 ```
 
 ## 4. 功能测试（接口正确性）
@@ -113,38 +114,95 @@ backend/
 
 ### 4.9 功能测试结果
 
-**36 项测试全部通过。**
+**36 项测试全部通过**，总耗时 48.03s。
+
+pytest 原始输出：
+
+```
+tests/test_api_functional.py::TestAuth::test_login_admin_success PASSED             [  2%]
+tests/test_api_functional.py::TestAuth::test_login_student_success PASSED           [  5%]
+tests/test_api_functional.py::TestAuth::test_login_by_student_id PASSED            [  8%]
+tests/test_api_functional.py::TestAuth::test_login_wrong_password PASSED           [ 11%]
+tests/test_api_functional.py::TestAuth::test_login_nonexistent_user PASSED         [ 13%]
+tests/test_api_functional.py::TestAuth::test_register_success PASSED               [ 16%]
+tests/test_api_functional.py::TestAuth::test_register_duplicate_email PASSED       [ 19%]
+tests/test_api_functional.py::TestAuth::test_logout PASSED                         [ 22%]
+tests/test_api_functional.py::TestNotifications::test_list_notifications PASSED    [ 25%]
+tests/test_api_functional.py::TestNotifications::test_create_notification_admin PASSED [ 27%]
+tests/test_api_functional.py::TestNotifications::test_create_notification_user_forbidden PASSED [ 30%]
+tests/test_api_functional.py::TestNotifications::test_create_notification_no_auth PASSED     [ 33%]
+tests/test_api_functional.py::TestActivities::test_list_activities PASSED          [ 36%]
+tests/test_api_functional.py::TestActivities::test_list_activities_by_category PASSED [ 38%]
+tests/test_api_functional.py::TestActivities::test_create_activity_admin PASSED    [ 41%]
+tests/test_api_functional.py::TestLostItems::test_list_lost_items PASSED           [ 44%]
+tests/test_api_functional.py::TestLostItems::test_list_lost_items_by_type PASSED   [ 47%]
+tests/test_api_functional.py::TestLostItems::test_create_lost_item_user PASSED     [ 50%]
+tests/test_api_functional.py::TestLostItems::test_create_lost_item_no_auth PASSED   [ 52%]
+tests/test_api_functional.py::TestUserNotifications::test_get_my_notifications PASSED [ 55%]
+tests/test_api_functional.py::TestUserNotifications::test_unread_count PASSED      [ 58%]
+tests/test_api_functional.py::TestUserNotifications::test_mark_read PASSED         [ 61%]
+tests/test_api_functional.py::TestUserNotifications::test_mark_read_all PASSED     [ 63%]
+tests/test_api_functional.py::TestUserProfile::test_get_profile PASSED             [ 66%]
+tests/test_api_functional.py::TestUserProfile::test_update_profile PASSED          [ 69%]
+tests/test_api_functional.py::TestUserProfile::test_get_profile_no_auth PASSED     [ 72%]
+tests/test_api_functional.py::TestSearch::test_search_has_results PASSED           [ 75%]
+tests/test_api_functional.py::TestSearch::test_search_activities PASSED            [ 77%]
+tests/test_api_functional.py::TestSearch::test_search_lost_items PASSED            [ 80%]
+tests/test_api_functional.py::TestSearch::test_search_filter_type PASSED           [ 83%]
+tests/test_api_functional.py::TestSearch::test_search_relevance_ordering PASSED    [ 86%]
+tests/test_api_functional.py::TestSearch::test_search_empty_query PASSED           [ 88%]
+tests/test_api_functional.py::TestSearch::test_search_results_have_score PASSED    [ 91%]
+tests/test_api_functional.py::TestFeed::test_feed_latest PASSED                    [ 94%]
+tests/test_api_functional.py::TestFeed::test_feed_has_multiple_types PASSED        [ 97%]
+tests/test_api_functional.py::TestFeed::test_feed_items_have_required_fields PASSED [100%]
+
+======================= 36 passed, 1 warning in 48.03s ========================
+```
 
 ## 5. 性能测试（响应时间 + 并发）
 
-### 5.1 响应时间测试
+### 5.1 测试方法
+
+- **响应时间**：对每个接口进行 **10 轮连续采样**，记录每轮响应时间，统计平均值、标准差、最小值、最大值
+- **并发测试**：使用 `asyncio.gather` 模拟 **50 个并发用户**，每个场景跑 **5 轮**，统计各轮总耗时
+
+### 5.2 响应时间测试
 
 **标准：所有接口响应时间 < 500ms**
 
-| 接口 | 结果 |
-|------|------|
-| GET /api/feed/latest | 通过 |
-| GET /api/notifications | 通过 |
-| GET /api/activities | 通过 |
-| GET /api/search?q=校园 | 通过 |
-| POST /api/auth/login | 通过 |
-| GET /api/search?q=考试 | 通过 |
+| 接口 | 平均值 | 标准差 | 最小值 | 最大值 |
+|------|--------|--------|--------|--------|
+| GET /api/feed/latest | 15.4 ms | ±2.5 | 13.8 ms | 22.5 ms |
+| GET /api/notifications | 10.2 ms | ±1.0 | 9.2 ms | 12.3 ms |
+| GET /api/activities | 10.5 ms | ±0.7 | 9.7 ms | 11.5 ms |
+| GET /api/search?q=校园 | 13.6 ms | ±0.6 | 12.8 ms | 14.7 ms |
+| POST /api/auth/login | 276.4 ms | ±24.8 | 262.3 ms | 346.0 ms |
+| GET /api/search?q=考试 | 14.2 ms | ±0.6 | 13.3 ms | 15.0 ms |
 
-### 5.2 并发访问测试
+> **说明**：登录接口平均耗时 276.4 ms，明显高于其他接口。这是因为登录过程需要使用 bcrypt 算法对用户密码进行哈希验证（bcrypt 的工作因子为 12，单次哈希约需 250-300ms），属于密码学安全机制的正常开销，不影响用户体验。
 
-**场景：20 个用户同时发起请求**
+### 5.3 并发访问测试
 
-| 测试场景 | 总耗时 | 平均每请求 |
-|----------|--------|-----------|
-| 并发 Feed 请求 | 186ms | 9ms |
-| 并发搜索请求 | 157ms | 8ms |
-| 并发混合请求 | 175ms | 9ms |
+**场景：50 个用户同时发起请求，每个场景跑 5 轮**
 
-### 5.3 性能测试结论
+| 测试场景 | 平均总耗时 | 标准差 | 最小值 | 最大值 | 平均单请求 |
+|----------|-----------|--------|--------|--------|-----------|
+| 并发 Feed 请求 | 529.2 ms | ±34.7 | 493.9 ms | 586.7 ms | 10.6 ms |
+| 并发搜索请求 | 447.9 ms | ±40.3 | 410.0 ms | 509.6 ms | 9.0 ms |
+| 并发混合请求 | 390.9 ms | ±14.8 | 376.3 ms | 415.5 ms | 7.8 ms |
 
-- 所有公开接口响应时间均在 500ms 以内
-- 20 并发请求下系统稳定，无请求失败
-- 平均单请求响应时间约 8-9ms，满足性能需求
+> **说明**：并发混合请求平均单请求耗时最低（7.8 ms），这是因为混合场景中包含了响应时间较快的通知列表接口（约 10ms）和活动列表接口（约 10ms），拉低了整体平均值。
+
+### 5.4 性能测试结论
+
+- 所有公开接口响应时间均在 500ms 以内，符合需求文档要求
+- 查询类接口（Feed、通知、活动、搜索）平均响应时间 10-15ms，性能良好
+- 登录接口因 bcrypt 密码哈希安全机制，平均耗时 276ms，属于合理范围
+- 50 并发请求下系统稳定，5 轮测试中无任何请求失败，各轮耗时的标准差在 15-40ms 之间，波动较小
+- 优化建议：
+  1. 登录接口可考虑缓存热点用户的密码哈希，或引入 JWT Token 刷新机制减少重复登录
+  2. 搜索接口可引入 Redis 缓存热门查询词的结果
+  3. 生产环境建议使用 MySQL 替代 SQLite 以获得更好的并发读写性能
 
 ## 6. 修复的 Bug
 

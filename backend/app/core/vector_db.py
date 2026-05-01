@@ -108,11 +108,11 @@ class VectorDB:
                     ]
                 )
 
-            results = client.search(
+            results = client.query_points(
                 collection_name=settings.QDRANT_COLLECTION,
-                query_vector=query_vector,
-                limit=limit,
+                query=query_vector,
                 query_filter=filter_condition,
+                limit=limit,
                 score_threshold=0.3,  # 相似度阈值
             )
             return [
@@ -121,7 +121,7 @@ class VectorDB:
                     "score": hit.score,
                     "payload": hit.payload,
                 }
-                for hit in results
+                for hit in results.points
             ]
         except Exception as e:
             logger.error(f"Qdrant 搜索失败: {e}")

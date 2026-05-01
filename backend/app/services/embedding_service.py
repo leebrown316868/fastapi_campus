@@ -55,6 +55,7 @@ class EmbeddingService:
         item_type: str,  # "lost" or "found"
         category: str,
         created_by: int,
+        images: str = "[]",  # JSON string of image list
     ) -> bool:
         """为失物招领内容生成并存储向量。"""
         if not self.vector_db.is_available:
@@ -71,6 +72,7 @@ class EmbeddingService:
             "type": item_type,
             "category": category,
             "created_by": created_by,
+            "images": images,  # JSON string
         }
 
         self._query_cache.cache.clear()  # 新增/修改数据时清空缓存
