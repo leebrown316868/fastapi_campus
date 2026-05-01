@@ -19,18 +19,25 @@ router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
 
 def _filter_target_users(users: List[User], target_grades: list | None, target_departments: list | None, target_majors: list | None) -> List[User]:
-    """Filter users by target criteria. If all targets are empty, return all users (broadcast)."""
+    """Filter users by target criteria. If all targets are empty, return all users (broadcast).
+
+    AND logic across dimensions: if both grade and department are set, user must match both.
+    Within each dimension: OR logic (any of the listed values matches).
+    """
     has_targets = bool(target_grades or target_departments or target_majors)
     if not has_targets:
         return users
 
     filtered = []
     for user in users:
-        if target_grades and user.grade in target_grades:
-            filtered.append(user)
-        elif target_departments and user.department in target_departments:
-            filtered.append(user)
-        elif target_majors and user.major in target_majors:
+        match = True
+        if target_grades:
+            match = match and (user.grade in target_grades)
+        if target_departments:
+            match = match and (user.department in target_departments)
+        if target_majors:
+            match = match and (user.major in target_majors)
+        if match:
             filtered.append(user)
     return filtered
 

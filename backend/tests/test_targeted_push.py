@@ -54,11 +54,25 @@ class TestFilterTargetUsers:
         assert len(result) == 1
         assert result[0].id == 4
 
-    def test_or_logic_across_fields(self):
+    def test_and_logic_cross_dimensions(self):
+        """Targeting grade=2024级 AND dept=计算机学院 -> only user 1 matches both."""
+        users = make_users()
+        result = _filter_target_users(users, ["2024级"], ["计算机学院"], [])
+        assert len(result) == 1
+        assert result[0].id == 1
+
+    def test_and_logic_no_match_cross_dimensions(self):
+        """Targeting grade=2025级 AND dept=外语学院 -> no one matches both."""
         users = make_users()
         result = _filter_target_users(users, ["2025级"], ["外语学院"], [])
-        assert len(result) == 2
-        assert {u.id for u in result} == {3, 4}
+        assert len(result) == 0
+
+    def test_or_logic_within_dimension(self):
+        """Targeting grade=2024级 OR 2025级 (same dimension = OR) -> users 1,2,3."""
+        users = make_users()
+        result = _filter_target_users(users, ["2024级", "2025级"], [], [])
+        assert len(result) == 3
+        assert {u.id for u in result} == {1, 2, 3}
 
     def test_no_match_returns_empty(self):
         users = make_users()

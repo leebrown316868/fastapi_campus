@@ -25,15 +25,29 @@ DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
 
 @router.get("/profile-options")
 async def get_profile_options(db: DatabaseSession = None):
-    """Get distinct grade/department/major values from existing users (for target audience selector)."""
+    """Get distinct grade/department/major values + dept->majors mapping from existing users."""
     from sqlalchemy import distinct
     grades_result = await db.execute(select(distinct(User.grade)).where(User.grade.isnot(None)).order_by(User.grade))
     depts_result = await db.execute(select(distinct(User.department)).where(User.department.isnot(None)).order_by(User.department))
     majors_result = await db.execute(select(distinct(User.major)).where(User.major.isnot(None)).order_by(User.major))
+
+    # Build dept -> majors mapping from existing users
+    dept_major_rows = await db.execute(
+        select(User.department, User.major)
+        .where(User.department.isnot(None), User.major.isnot(None))
+        .distinct()
+    )
+    dept_majors: dict[str, list[str]] = {}
+    for row in dept_major_rows:
+        d, m = row[0], row[1]
+        if d and m:
+            dept_majors.setdefault(d, []).append(m)
+
     return {
         "grades": [r[0] for r in grades_result if r[0]],
         "departments": [r[0] for r in depts_result if r[0]],
         "majors": [r[0] for r in majors_result if r[0]],
+        "dept_majors": dept_majors,
     }
 
 

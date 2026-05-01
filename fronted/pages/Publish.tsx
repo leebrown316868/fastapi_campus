@@ -51,6 +51,8 @@ const Publish: React.FC = () => {
   const [gradeSuggestions, setGradeSuggestions] = useState<string[]>([]);
   const [deptSuggestions, setDeptSuggestions] = useState<string[]>([]);
   const [majorSuggestions, setMajorSuggestions] = useState<string[]>([]);
+  const [allMajors, setAllMajors] = useState<string[]>([]);
+  const [deptMajorsMap, setDeptMajorsMap] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -62,12 +64,27 @@ const Publish: React.FC = () => {
           const data = await res.json();
           setGradeSuggestions(data.grades || []);
           setDeptSuggestions(data.departments || []);
+          setAllMajors(data.majors || []);
+          setDeptMajorsMap(data.dept_majors || {});
           setMajorSuggestions(data.majors || []);
         }
       } catch (e) { /* ignore */ }
     };
     fetchSuggestions();
   }, [user]);
+
+  // Filter major suggestions when departments are selected
+  useEffect(() => {
+    if (courseForm.target_departments.length === 0 || Object.keys(deptMajorsMap).length === 0) {
+      setMajorSuggestions(allMajors);
+    } else {
+      const filtered = new Set<string>();
+      courseForm.target_departments.forEach(dept => {
+        (deptMajorsMap[dept] || []).forEach(m => filtered.add(m));
+      });
+      setMajorSuggestions(filtered.size > 0 ? [...filtered] : allMajors);
+    }
+  }, [courseForm.target_departments, deptMajorsMap, allMajors]);
 
   // 活动公告表单状态
   const [activityForm, setActivityForm] = useState({
