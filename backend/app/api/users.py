@@ -329,7 +329,16 @@ async def bulk_delete_users(
 
     user_ids = [u.id for u in users]
 
-    # Clean up related records before deleting users
+    # Detach content — keep it, just unlink the deleted author
+    from app.models.notification import Notification
+    from app.models.activity import Activity
+    from app.models.lost_item import LostItem
+    from sqlalchemy import update
+    await db.execute(update(Notification).where(Notification.created_by.in_(user_ids)).values(created_by=None))
+    await db.execute(update(Activity).where(Activity.created_by.in_(user_ids)).values(created_by=None))
+    await db.execute(update(LostItem).where(LostItem.created_by.in_(user_ids)).values(created_by=None))
+
+    # Clean up personal records
     await db.execute(sql_delete(PointRecord).where(PointRecord.user_id.in_(user_ids)))
     await db.execute(sql_delete(ActivityFeedback).where(ActivityFeedback.user_id.in_(user_ids)))
     await db.execute(sql_delete(UserNotification).where(UserNotification.user_id.in_(user_ids)))
@@ -416,11 +425,20 @@ async def delete_user(
             detail="Cannot delete admin users"
         )
 
-    # Clean up related records
+    # Detach content — keep it, just unlink the deleted author
+    from app.models.notification import Notification
+    from app.models.activity import Activity
+    from app.models.lost_item import LostItem
     from app.models.point_record import PointRecord
     from app.models.activity_feedback import ActivityFeedback
     from app.models.user_notification import UserNotification
     from app.models.activity_registration import ActivityRegistration
+    from sqlalchemy import update
+    await db.execute(update(Notification).where(Notification.created_by == user_id).values(created_by=None))
+    await db.execute(update(Activity).where(Activity.created_by == user_id).values(created_by=None))
+    await db.execute(update(LostItem).where(LostItem.created_by == user_id).values(created_by=None))
+
+    # Clean up personal records
     await db.execute(sql_delete(PointRecord).where(PointRecord.user_id == user_id))
     await db.execute(sql_delete(ActivityFeedback).where(ActivityFeedback.user_id == user_id))
     await db.execute(sql_delete(UserNotification).where(UserNotification.user_id == user_id))
