@@ -8,10 +8,13 @@ export interface UserProfile {
   role: 'user' | 'admin';
   avatar?: string;
   major?: string;
+  grade?: string;
+  department?: string;
   bio?: string;
   phone?: string;
   is_active: boolean;
   is_verified: boolean;
+  total_points?: number;
   created_at: string;
 }
 
@@ -29,6 +32,8 @@ export const usersService = {
   async updateMe(data: {
     name?: string;
     major?: string;
+    grade?: string;
+    department?: string;
     bio?: string;
     phone?: string;
     avatar?: string;

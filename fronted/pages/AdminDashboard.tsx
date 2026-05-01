@@ -345,10 +345,10 @@ const AdminDashboard: React.FC = () => {
   };
 
   const downloadTemplate = () => {
-    const csv = `name,email,student_id,role,major,password
-张三,zhangsan@example.com,2021001,user,计算机科学与技术,123456
-李四,lisi@example.com,2021002,user,软件工程,123456
-王五,wangwu@example.com,2021003,admin,信息安全,123456`;
+    const csv = `name,email,student_id,role,major,grade,department,password
+张三,zhangsan@example.com,2021001,user,计算机科学与技术,2024级,计算机学院,123456
+李四,lisi@example.com,2021002,user,软件工程,2024级,计算机学院,123456
+王五,wangwu@example.com,2021003,user,英语,2025级,外语学院,123456`;
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2056,6 +2056,8 @@ const AdminDashboard: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">姓名</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">邮箱</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">专业</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">年级</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">院系</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">角色</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">状态</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">操作</th>
@@ -2064,7 +2066,7 @@ const AdminDashboard: React.FC = () => {
                   <tbody className="divide-y divide-slate-200">
                     {users.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
                           <div className="flex flex-col items-center">
                             <span className="material-symbols-outlined text-5xl text-slate-300 mb-3">people</span>
                             <p>暂无用户数据</p>
@@ -2092,6 +2094,8 @@ const AdminDashboard: React.FC = () => {
                           <td className="px-6 py-4 text-sm text-slate-900 font-medium">{user.name}</td>
                           <td className="px-6 py-4 text-sm text-slate-500">{user.email}</td>
                           <td className="px-6 py-4 text-sm text-slate-500">{user.major || '-'}</td>
+                          <td className="px-6 py-4 text-sm text-slate-500">{user.grade || '-'}</td>
+                          <td className="px-6 py-4 text-sm text-slate-500">{user.department || '-'}</td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
                               user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'
@@ -2257,7 +2261,7 @@ const AdminDashboard: React.FC = () => {
               <h4 className="font-bold text-slate-900 mb-4">导入说明</h4>
               <div className="space-y-3 text-sm text-slate-600">
                 <p><span className="font-medium text-slate-900">必填字段：</span>姓名 (name)、邮箱 (email)</p>
-                <p><span className="font-medium text-slate-900">可选字段：</span>学号 (student_id)、角色 (role)、专业 (major)、密码 (password)</p>
+                <p><span className="font-medium text-slate-900">可选字段：</span>学号 (student_id)、角色 (role)、专业 (major)、年级 (grade)、院系 (department)、密码 (password)</p>
                 <p><span className="font-medium text-slate-900">默认值：</span>角色默认为 user，密码默认为 123456</p>
                 <p><span className="font-medium text-slate-900">注意事项：</span>邮箱必须唯一，重复邮箱将被跳过</p>
               </div>
