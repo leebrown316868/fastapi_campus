@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete as sql_delete
 import pandas as pd
 import io
 import datetime
@@ -303,6 +303,11 @@ async def bulk_delete_users(
     db: DatabaseSession = None,
 ):
     """Bulk delete users (admin only)."""
+    from app.models.point_record import PointRecord
+    from app.models.activity_feedback import ActivityFeedback
+    from app.models.user_notification import UserNotification
+    from app.models.activity_registration import ActivityRegistration
+
     result = await db.execute(
         select(User).where(User.id.in_(bulk_data.user_ids))
     )
@@ -321,6 +326,14 @@ async def bulk_delete_users(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot delete admin user: {user.email}"
             )
+
+    user_ids = [u.id for u in users]
+
+    # Clean up related records before deleting users
+    await db.execute(sql_delete(PointRecord).where(PointRecord.user_id.in_(user_ids)))
+    await db.execute(sql_delete(ActivityFeedback).where(ActivityFeedback.user_id.in_(user_ids)))
+    await db.execute(sql_delete(UserNotification).where(UserNotification.user_id.in_(user_ids)))
+    await db.execute(sql_delete(ActivityRegistration).where(ActivityRegistration.user_id.in_(user_ids)))
 
     deleted_count = 0
     for user in users:
@@ -402,6 +415,16 @@ async def delete_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete admin users"
         )
+
+    # Clean up related records
+    from app.models.point_record import PointRecord
+    from app.models.activity_feedback import ActivityFeedback
+    from app.models.user_notification import UserNotification
+    from app.models.activity_registration import ActivityRegistration
+    await db.execute(sql_delete(PointRecord).where(PointRecord.user_id == user_id))
+    await db.execute(sql_delete(ActivityFeedback).where(ActivityFeedback.user_id == user_id))
+    await db.execute(sql_delete(UserNotification).where(UserNotification.user_id == user_id))
+    await db.execute(sql_delete(ActivityRegistration).where(ActivityRegistration.user_id == user_id))
 
     await db.delete(user)
     await db.commit()
