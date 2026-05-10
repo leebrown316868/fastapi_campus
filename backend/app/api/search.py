@@ -1,6 +1,7 @@
 """
 Unified full-text search across notifications, activities, and lost items.
 Uses MySQL FULLTEXT indexes for efficient inverted-index search with relevance ranking.
+Lost items use hybrid search: MySQL keyword match + Qdrant semantic similarity.
 """
 from fastapi import APIRouter, Query, Depends
 from sqlalchemy import text
@@ -125,21 +126,96 @@ async def unified_search(
             ))
 
     if type in ("all", "lost-items"):
-        # 优先使用 Qdrant 语义搜索，失败则降级到 FULLTEXT/LIKE
+        # 混合搜索：MySQL LIKE 关键词匹配 + Qdrant 语义相似度
+        # 关键词命中标题/描述时获得加成，解决纯语义搜索中标题精确匹配被埋没的问题
+
+        # Step 1: MySQL 关键词搜索
+        kw_sql = text("""
+            SELECT id, title, description, category, location, type AS item_type,
+                   status, images, created_at
+            FROM lost_items
+            WHERE title LIKE CONCAT('%', :kw, '%')
+               OR description LIKE CONCAT('%', :kw, '%')
+               OR location LIKE CONCAT('%', :kw, '%')
+            LIMIT :lim
+        """)
+        kw_rows = (await db.execute(kw_sql, {"kw": keyword, "lim": limit * 2})).fetchall()
+
+        keyword_hits: dict[int, dict] = {}
+        for r in kw_rows:
+            kw_lower = keyword.lower()
+            title_match = kw_lower in (r.title or "").lower()
+            desc_match = kw_lower in (r.description or "").lower()
+            loc_match = kw_lower in (r.location or "").lower()
+            keyword_hits[r.id] = {
+                "title_match": title_match,
+                "desc_match": desc_match or loc_match,
+                "row": r,
+            }
+
+        # Step 2: Qdrant 语义搜索
+        qdrant_hits: dict[int, dict] = {}
         if embedding_service.vector_db.is_available:
             matches = embedding_service.search_lost_items(
                 query=keyword,
                 limit=limit,
-                item_type=None,  # 支持 all 类型
+                item_type=None,
             )
-            counts["lost_items"] = len(matches)
             for m in matches:
-                results.append(SearchResultItem(
-                    id=m["id"],
-                    type="lost_item",
+                qdrant_hits[m["id"]] = m
+
+        # Step 2.5: 标题语义加成 (解决跨语言查询如 "ring" → "戒指" 的排名问题)
+        if qdrant_hits:
+            titles = [m["payload"]["title"] for m in qdrant_hits.values()]
+            query_vec = embedding_service.embedding_model.encode(keyword)
+            title_vecs = embedding_service.embedding_model.encode_batch(titles)
+            for (item_id, m), title_vec in zip(qdrant_hits.items(), title_vecs):
+                m["title_sim"] = embedding_service.embedding_model.cosine_similarity(
+                    query_vec, title_vec
+                )
+
+        # Step 3: 合并打分
+        #   score = 0.5 * 全文语义分 + 0.5 * 标题语义分 + 关键词加成
+        # 标题和全文各占一半权重，避免跨语言查询时全文偏向干扰项
+        all_ids = set(keyword_hits.keys()) | set(qdrant_hits.keys())
+        items: list[SearchResultItem] = []
+        for item_id in all_ids:
+            full_text_score = qdrant_hits[item_id]["score"] if item_id in qdrant_hits else 0.0
+            title_score = qdrant_hits[item_id].get("title_sim", full_text_score) \
+                if item_id in qdrant_hits else 0.0
+
+            # 全文 + 标题 各 50%，无标题向量时退化为纯全文分
+            semantic_score = 0.5 * full_text_score + 0.5 * title_score
+
+            kw = keyword_hits.get(item_id, {})
+            keyword_boost = 0.0
+            if kw.get("title_match"):
+                keyword_boost += 0.3
+            elif kw.get("desc_match"):
+                keyword_boost += 0.15
+
+            final_score = semantic_score + keyword_boost
+
+            if item_id in keyword_hits:
+                r = kw["row"]
+                items.append(SearchResultItem(
+                    id=r.id, type="lost_item", title=r.title,
+                    description=(r.description or "")[:200],
+                    score=final_score,
+                    created_at=r.created_at,
+                    extra={
+                        "category": r.category, "location": r.location,
+                        "item_type": r.item_type, "status": r.status,
+                        "images": json.loads(r.images) if r.images else [],
+                    },
+                ))
+            else:
+                m = qdrant_hits[item_id]
+                items.append(SearchResultItem(
+                    id=m["id"], type="lost_item",
                     title=m["payload"]["title"],
                     description=m["payload"].get("description", "")[:200],
-                    score=m["score"],
+                    score=final_score,
                     extra={
                         "category": m["payload"].get("category"),
                         "location": m["payload"].get("location"),
@@ -147,40 +223,10 @@ async def unified_search(
                         "images": m["payload"].get("images", "[]"),
                     },
                 ))
-        else:
-            if use_fulltext:
-                sql = text("""
-                    SELECT id, title, description, category, location, type AS item_type,
-                           status, images,
-                           MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE) AS score
-                    FROM lost_items
-                    WHERE MATCH(title, description, location) AGAINST(:kw IN NATURAL LANGUAGE MODE)
-                    ORDER BY score DESC
-                    LIMIT :lim
-                """)
-            else:
-                sql = text("""
-                    SELECT id, title, description, category, location, type AS item_type,
-                           status, images, 1.0 AS score
-                    FROM lost_items
-                    WHERE title LIKE CONCAT('%', :kw, '%')
-                       OR description LIKE CONCAT('%', :kw, '%')
-                       OR location LIKE CONCAT('%', :kw, '%')
-                    LIMIT :lim
-                """)
-            rows = (await db.execute(sql, {"kw": keyword, "lim": limit})).fetchall()
-            counts["lost_items"] = len(rows)
-            for r in rows:
-                results.append(SearchResultItem(
-                    id=r.id, type="lost_item", title=r.title,
-                    description=r.description[:200] if r.description else "",
-                    score=float(r.score),
-                    extra={
-                        "category": r.category, "location": r.location,
-                        "item_type": r.item_type, "status": r.status,
-                        "images": json.loads(r.images) if r.images else [],
-                    },
-                ))
+
+        items.sort(key=lambda x: x.score, reverse=True)
+        counts["lost_items"] = len(items)
+        results.extend(items[:limit])
 
     # Global sort by relevance score
     results.sort(key=lambda x: x.score, reverse=True)

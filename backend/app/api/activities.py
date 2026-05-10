@@ -220,6 +220,12 @@ async def delete_activity(
         sql_delete(ActivityFeedback).where(ActivityFeedback.activity_id == activity_id)
     )
 
+    # Delete point records for this activity
+    from app.models.point_record import PointRecord
+    await db.execute(
+        sql_delete(PointRecord).where(PointRecord.activity_id == activity_id)
+    )
+
     # Then delete the activity
     await db.delete(activity)
     await db.commit()
@@ -286,6 +292,12 @@ async def batch_delete_activities(
     from app.models.activity_feedback import ActivityFeedback
     await db.execute(
         sql_delete(ActivityFeedback).where(ActivityFeedback.activity_id.in_(activity_ids))
+    )
+
+    # Delete point records for these activities
+    from app.models.point_record import PointRecord
+    await db.execute(
+        sql_delete(PointRecord).where(PointRecord.activity_id.in_(activity_ids))
     )
 
     # Then delete the activities

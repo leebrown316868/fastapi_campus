@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { searchService, SearchResultItem } from '../services/search.service';
 import { resolveImageUrl } from '../services/uploads.service';
 import { showToast } from '../components/Toast';
@@ -9,6 +9,7 @@ type TabType = 'all' | 'notifications' | 'activities' | 'lost-items';
 
 const SearchResults: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const query = searchParams.get('q') || '';
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [results, setResults] = useState<SearchResultItem[]>([]);
@@ -91,7 +92,7 @@ const SearchResults: React.FC = () => {
               className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                  window.location.href = `/search?q=${encodeURIComponent(e.currentTarget.value.trim())}`;
+                  navigate(`/search?q=${encodeURIComponent(e.currentTarget.value.trim())}`);
                 }
               }}
             />
