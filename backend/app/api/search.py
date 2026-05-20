@@ -4,7 +4,7 @@ Uses MySQL FULLTEXT indexes for efficient inverted-index search with relevance r
 Lost items use hybrid search: MySQL keyword match + Qdrant semantic similarity.
 """
 from fastapi import APIRouter, Query, Depends
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional
@@ -129,14 +129,15 @@ async def unified_search(
         # 混合搜索：MySQL LIKE 关键词匹配 + Qdrant 语义相似度
         # 关键词命中标题/描述时获得加成，解决纯语义搜索中标题精确匹配被埋没的问题
 
-        # Step 1: MySQL 关键词搜索
+        # Step 1: MySQL 关键词搜索（仅已审核通过的）
         kw_sql = text("""
             SELECT id, title, description, category, location, type AS item_type,
                    status, images, created_at
             FROM lost_items
-            WHERE title LIKE CONCAT('%', :kw, '%')
-               OR description LIKE CONCAT('%', :kw, '%')
-               OR location LIKE CONCAT('%', :kw, '%')
+            WHERE review_status = 'approved'
+              AND (title LIKE CONCAT('%', :kw, '%')
+                OR description LIKE CONCAT('%', :kw, '%')
+                OR location LIKE CONCAT('%', :kw, '%'))
             LIMIT :lim
         """)
         kw_rows = (await db.execute(kw_sql, {"kw": keyword, "lim": limit * 2})).fetchall()
@@ -153,13 +154,14 @@ async def unified_search(
                 "row": r,
             }
 
-        # Step 2: Qdrant 语义搜索
+        # Step 2: Qdrant 语义搜索（不限阈值，召回后由 Python 混合打分排序）
         qdrant_hits: dict[int, dict] = {}
         if embedding_service.vector_db.is_available:
             matches = embedding_service.search_lost_items(
                 query=keyword,
                 limit=limit,
                 item_type=None,
+                score_threshold=None,  # 搜索管道不过滤，交给下游混合打分
             )
             for m in matches:
                 qdrant_hits[m["id"]] = m
@@ -173,6 +175,20 @@ async def unified_search(
                 m["title_sim"] = embedding_service.embedding_model.cosine_similarity(
                     query_vec, title_vec
                 )
+
+        # Step 2.6: 过滤 Qdrant 中已删除/被拒绝（MySQL 不存在或未审核通过的）物品
+        qdrant_only_ids = set(qdrant_hits.keys()) - set(keyword_hits.keys())
+        if qdrant_only_ids:
+            from app.models.lost_item import LostItem
+            exist_rows = (await db.execute(
+                select(LostItem.id).where(
+                    LostItem.id.in_(qdrant_only_ids),
+                    LostItem.review_status == "approved",
+                )
+            )).fetchall()
+            exist_ids = {r.id for r in exist_rows}
+            for sid in qdrant_only_ids - exist_ids:
+                qdrant_hits.pop(sid, None)
 
         # Step 3: 合并打分
         #   score = 0.5 * 全文语义分 + 0.5 * 标题语义分 + 关键词加成

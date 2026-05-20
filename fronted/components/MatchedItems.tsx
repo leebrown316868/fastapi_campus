@@ -57,7 +57,7 @@ const MatchedItems: React.FC<MatchedItemsProps> = ({ itemId }) => {
                 : 'bg-red-100 text-red-600'
             }`}>
               <span className="material-symbols-outlined text-lg">
-                {match.type === 'found' ? 'found' : 'search'}
+                {match.type === 'found' ? 'handshake' : 'search'}
               </span>
             </div>
 

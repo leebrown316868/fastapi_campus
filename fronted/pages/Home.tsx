@@ -4,21 +4,14 @@ import DottedBackground from '../components/DottedBackground';
 import feedService, { FeedItem } from '../services/feed.service';
 import { formatDateTime } from '../utils/datetime';
 
-interface Author {
-  name: string;
-  avatar: string;
-}
-
-interface NewsItem extends FeedItem {
-  author: Author;
-}
+const DEFAULT_AVATAR = 'https://lh3.googleusercontent.com/a/default-user=s96-c';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [newsItems, setNewsItems] = useState<FeedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -46,19 +39,7 @@ const Home: React.FC = () => {
       try {
         setIsLoading(true);
         const data = await feedService.getLatest(6);
-
-        // Add default author info for display
-        const itemsWithAuthor: NewsItem[] = data.items.map(item => ({
-          ...item,
-          author: {
-            name: item.type === 'notification' ? '行政处' :
-                   item.type === 'activity' ? '学生会' :
-                   '校园管理',
-            avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRXnNGLxZr6QrOYWk0xHKGd53dZm65uHPDQ79w9qM1Ozqd0t2D8C67f6mnlzYZ2-QksqtVwxH-B1qgLrutvHolhSkqjRMN6j9EBJ-DCmKaXuG5tSDL4JiXweeK2Cprks6Ob0wfcVHsBEEsUhMjaH_XSXk8xJAucpRiyestt4n4HxqDRY1wbsNDBI1r_myh4TYYMGBaLBv2U-T5BGJASlnlQmyMmRJ9khMSVbW-olvL7chMoLia-RaxqQuQXIdq3dE3u_f5G0dSPBw4'
-          }
-        }));
-
-        setNewsItems(itemsWithAuthor);
+        setNewsItems(data.items);
       } catch (error) {
         console.error('Failed to fetch news:', error);
         // Set empty array on error
@@ -155,74 +136,6 @@ const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* Quick Access Cards */}
-        <section
-          id="cards"
-          data-animate
-          className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all duration-1000 delay-200 ${
-            visibleSections.has('cards') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}
-        >
-          <Link
-            to="/notifications"
-            className="group relative bg-white/70 backdrop-blur-xl rounded-2xl p-6 flex flex-col gap-4 cursor-pointer overflow-hidden transition-all duration-500 hover:bg-white/90 hover:-translate-y-2 hover:shadow-2xl border border-white/60"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative">
-              <div className="w-14 h-14 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 border border-blue-100 shadow-sm">
-                <span className="material-symbols-outlined text-3xl group-hover:animate-bounce">menu_book</span>
-              </div>
-            </div>
-            <div className="relative">
-              <h3 className="text-slate-900 text-xl font-bold mb-1 group-hover:text-blue-600 transition-colors">课程通知</h3>
-              <p className="text-slate-500 text-sm leading-relaxed">来自教授关于作业的3条更新。</p>
-            </div>
-            <div className="mt-auto flex items-center text-primary font-bold text-sm relative">
-              <span className="group-hover:translate-x-1 transition-transform">查看更新</span>
-              <span className="material-symbols-outlined text-sm ml-1 transition-all group-hover:translate-x-2">arrow_forward</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/activities"
-            className="group relative bg-white/70 backdrop-blur-xl rounded-2xl p-6 flex flex-col gap-4 cursor-pointer overflow-hidden transition-all duration-500 hover:bg-white/90 hover:-translate-y-2 hover:shadow-2xl border border-white/60"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative">
-              <div className="w-14 h-14 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 border border-emerald-100 shadow-sm">
-                <span className="material-symbols-outlined text-3xl group-hover:animate-bounce">campaign</span>
-              </div>
-            </div>
-            <div className="relative">
-              <h3 className="text-slate-900 text-xl font-bold mb-1 group-hover:text-emerald-600 transition-colors">活动公告</h3>
-              <p className="text-slate-500 text-sm leading-relaxed">别错过明天在大礼堂举行的科学博览会。</p>
-            </div>
-            <div className="mt-auto flex items-center text-emerald-600 font-bold text-sm relative">
-              <span className="group-hover:translate-x-1 transition-transform">探索活动</span>
-              <span className="material-symbols-outlined text-sm ml-1 transition-all group-hover:translate-x-2">arrow_forward</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/lost-and-found"
-            className="group relative bg-white/70 backdrop-blur-xl rounded-2xl p-6 flex flex-col gap-4 cursor-pointer overflow-hidden transition-all duration-500 hover:bg-white/90 hover:-translate-y-2 hover:shadow-2xl border border-white/60"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative">
-              <div className="w-14 h-14 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 border border-amber-100 shadow-sm">
-                <span className="material-symbols-outlined text-3xl group-hover:animate-bounce">search</span>
-              </div>
-            </div>
-            <div className="relative">
-              <h3 className="text-slate-900 text-xl font-bold mb-1 group-hover:text-amber-600 transition-colors">失物招领</h3>
-              <p className="text-slate-500 text-sm leading-relaxed">浏览最近捡到的物品或报告丢失物品。</p>
-            </div>
-            <div className="mt-auto flex items-center text-amber-600 font-bold text-sm relative">
-              <span className="group-hover:translate-x-1 transition-transform">查看物品</span>
-              <span className="material-symbols-outlined text-sm ml-1 transition-all group-hover:translate-x-2">arrow_forward</span>
-            </div>
-          </Link>
-        </section>
 
         {/* Latest Dynamics */}
         <section
@@ -283,10 +196,10 @@ const Home: React.FC = () => {
                     </p>
                     <div className="flex items-center gap-2 mt-auto pt-3 border-t border-slate-100/50">
                       <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden group-hover:scale-110 transition-transform">
-                        <img alt={item.author.name} className="w-full h-full object-cover" src={item.author.avatar} />
+                        <img alt={item.author_name || '匿名'} className="w-full h-full object-cover" src={item.author_avatar || DEFAULT_AVATAR} />
                       </div>
                       <span className="text-slate-500 text-xs font-medium group-hover:text-slate-700 transition-colors">
-                        发布者：{item.author.name}
+                        发布者：{item.author_name || '匿名用户'}
                       </span>
                     </div>
                   </div>

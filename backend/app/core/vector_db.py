@@ -90,6 +90,7 @@ class VectorDB:
         query_vector: list[float],
         limit: int = 5,
         filter_type: Optional[str] = None,  # "lost" or "found"
+        score_threshold: Optional[float] = 0.6,  # 匹配管道用 0.6，搜索管道可传 None 关闭
     ) -> list[dict]:
         """语义搜索。"""
         client = self._get_client()
@@ -113,7 +114,7 @@ class VectorDB:
                 query=query_vector,
                 query_filter=filter_condition,
                 limit=limit,
-                score_threshold=0.3,  # 相似度阈值
+                score_threshold=score_threshold,
             )
             return [
                 {

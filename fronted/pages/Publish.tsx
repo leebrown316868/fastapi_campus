@@ -91,7 +91,7 @@ const Publish: React.FC = () => {
     title: '',
     description: '',
     location: '',
-    category: '学术讲座',
+    category: '讲座',
     organizer: '',
     notes: '',
     image: '',
@@ -109,12 +109,10 @@ const Publish: React.FC = () => {
 
   // 活动类别选项
   const activityCategories = [
-    '学术讲座',
-    '文艺演出',
-    '体育赛事',
-    '社团活动',
-    '志愿服务',
-    '就业招聘',
+    '讲座',
+    '文艺',
+    '体育',
+    '科创',
   ];
 
   // 活动地点选项
@@ -147,14 +145,14 @@ const Publish: React.FC = () => {
 
   // 失物招领类别定义
   const lostItemCategories = [
-    { value: 'electronics', label: '电子数码', icon: 'devices', color: 'blue' },
-    { value: 'cards', label: '证件卡片', icon: 'badge', color: 'purple' },
-    { value: 'books', label: '书籍文具', icon: 'menu_book', color: 'green' },
-    { value: 'daily', label: '生活用品', icon: 'coffee', color: 'amber' },
-    { value: 'clothing', label: '服饰配件', icon: 'checkroom', color: 'pink' },
-    { value: 'sports', label: '运动器材', icon: 'sports_basketball', color: 'red' },
-    { value: 'keys', label: '钥匙', icon: 'key', color: 'slate' },
-    { value: 'other', label: '其他', icon: 'more_horiz', color: 'gray' },
+    { value: '电子数码', label: '电子数码', icon: 'devices', color: 'blue' },
+    { value: '证件卡片', label: '证件卡片', icon: 'badge', color: 'purple' },
+    { value: '书籍文具', label: '书籍文具', icon: 'menu_book', color: 'green' },
+    { value: '生活用品', label: '生活用品', icon: 'coffee', color: 'amber' },
+    { value: '服饰配件', label: '服饰配件', icon: 'checkroom', color: 'pink' },
+    { value: '运动器材', label: '运动器材', icon: 'sports_basketball', color: 'red' },
+    { value: '钥匙', label: '钥匙', icon: 'key', color: 'slate' },
+    { value: '其他', label: '其他', icon: 'more_horiz', color: 'gray' },
   ];
 
   // 权限检查

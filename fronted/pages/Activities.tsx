@@ -1,35 +1,45 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { activitiesService, Activity as ApiActivity } from '../services/activities.service';
 import { useAuth } from '../contexts/AuthContext';
 import { showToast } from '../components/Toast';
 import DottedBackground from '../components/DottedBackground';
 import { resolveImageUrl } from '../services/uploads.service';
 
+const categories = ['全部类型', '文艺', '讲座', '体育', '科创'];
+const statuses = ['全部状态', '报名中', '进行中', '已结束'];
+const timeFilters = [
+  { value: 'all', label: '全部时间' },
+  { value: 'week', label: '本周' },
+  { value: 'month', label: '本月' },
+];
+
 const Activities: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState<string>('全部类型');
-  const [selectedStatus, setSelectedStatus] = useState<string>('全部状态');
-  const [selectedTime, setSelectedTime] = useState<'all' | 'week' | 'month'>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    setVisible(true);
-  }, []);
+  useEffect(() => { setVisible(true); }, []);
 
-  const categories = ['全部类型', '文艺', '讲座', '体育', '科创'];
-  const statuses = ['全部状态', '报名中', '进行中', '已结束'];
-  const timeFilters = [
-    { value: 'all' as const, label: '全部时间' },
-    { value: 'week' as const, label: '本周' },
-    { value: 'month' as const, label: '本月' },
-  ];
+  // Read filters from URL (single source of truth)
+  const selectedCategory = searchParams.get('category') || '全部类型';
+  const selectedStatus = searchParams.get('status') || '全部状态';
+  const selectedTime = searchParams.get('time') || 'all';
 
-  // Fetch activities from API
+  const updateParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'all' || value === '全部类型' || value === '全部状态') {
+      next.delete(key);
+    } else {
+      next.set(key, value);
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  // Fetch from API when filters change
   useEffect(() => {
     const fetchActivities = async () => {
       try {
@@ -43,19 +53,12 @@ const Activities: React.FC = () => {
         // Client-side time filter
         if (selectedTime !== 'all') {
           const now = new Date();
-          const filteredData = data.filter(activity => {
-            const activityDate = new Date(activity.date);
-            const diffTime = activityDate.getTime() - now.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (selectedTime === 'week') {
-              return diffDays >= 0 && diffDays <= 7;
-            } else if (selectedTime === 'month') {
-              return diffDays >= 0 && diffDays <= 30;
-            }
+          setActivities(data.filter(activity => {
+            const diffDays = (new Date(activity.date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+            if (selectedTime === 'week') return diffDays >= 0 && diffDays <= 7;
+            if (selectedTime === 'month') return diffDays >= 0 && diffDays <= 30;
             return true;
-          });
-          setActivities(filteredData);
+          }));
         } else {
           setActivities(data);
         }
@@ -72,7 +75,6 @@ const Activities: React.FC = () => {
 
   return (
     <div className="relative min-h-screen">
-      {/* Dynamic Dotted Background */}
       <DottedBackground />
 
       <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
@@ -92,7 +94,7 @@ const Activities: React.FC = () => {
             {categories.map(cat => (
               <button
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => updateParam('category', cat)}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedCategory === cat
                     ? 'bg-primary text-white'
@@ -109,7 +111,7 @@ const Activities: React.FC = () => {
             {statuses.map(status => (
               <button
                 key={status}
-                onClick={() => setSelectedStatus(status)}
+                onClick={() => updateParam('status', status)}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedStatus === status
                     ? 'bg-primary text-white'
@@ -126,7 +128,7 @@ const Activities: React.FC = () => {
             {timeFilters.map(filter => (
               <button
                 key={filter.value}
-                onClick={() => setSelectedTime(filter.value)}
+                onClick={() => updateParam('time', filter.value)}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedTime === filter.value
                     ? 'bg-primary text-white'

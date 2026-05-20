@@ -52,6 +52,7 @@ async def find_matching_items(
     db: AsyncSession,
     item_id: int,
     user_id: int,
+    score_threshold: float | None = 0.6,
 ) -> list[dict]:
     """查找与指定物品交叉匹配的物品列表。"""
     source = await db.get(LostItem, item_id)
@@ -60,15 +61,15 @@ async def find_matching_items(
 
     opposite_type = "found" if source.type == "lost" else "lost"
 
-    # 使用 Qdrant 语义搜索
     if not embedding_service.vector_db.is_available:
-        return []  # Qdrant 不可用时返回空，不阻塞
+        return []
 
     query = f"{source.title} {source.description} {source.location}"
     matches = embedding_service.search_lost_items(
         query=query,
         limit=5,
         item_type=opposite_type,
+        score_threshold=score_threshold,
     )
 
     results = []
@@ -124,7 +125,7 @@ async def get_item_matches(
     current_user: CurrentUser = None,
     db: DatabaseSession = None,
 ):
-    """获取指定失物/招领物品的潜在匹配列表。"""
+    """获取指定失物/招领物品的潜在匹配列表（不限阈值，按相似度降序）。"""
     item = (await db.execute(
         select(LostItem).where(LostItem.id == item_id)
     )).scalar_one_or_none()
@@ -132,5 +133,5 @@ async def get_item_matches(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
 
-    matches = await find_matching_items(db, item_id, item.created_by)
+    matches = await find_matching_items(db, item_id, item.created_by, score_threshold=None)
     return matches

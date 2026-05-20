@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { lostItemsService, LostItem as ApiLostItem } from '../services/lostItems.service';
 import { showToast } from '../components/Toast';
@@ -7,61 +7,86 @@ import DottedBackground from '../components/DottedBackground';
 import { resolveImageUrl } from '../services/uploads.service';
 import { formatDateTime } from '../utils/datetime';
 
+const categoryConfig: Record<string, { label: string; icon: string; color: string }> = {
+  electronics: { label: '电子数码', icon: 'devices', color: 'blue' },
+  cards: { label: '证件卡片', icon: 'badge', color: 'purple' },
+  books: { label: '书籍文具', icon: 'menu_book', color: 'green' },
+  daily: { label: '生活用品', icon: 'coffee', color: 'amber' },
+  clothing: { label: '服饰配件', icon: 'checkroom', color: 'pink' },
+  sports: { label: '运动器材', icon: 'sports_basketball', color: 'red' },
+  keys: { label: '钥匙', icon: 'key', color: 'slate' },
+  other: { label: '其他', icon: 'more_horiz', color: 'gray' },
+};
+
+const categories = ['all', ...Object.keys(categoryConfig)];
+
+// Reverse map: Chinese label → config (API returns labels, config keys are English)
+const categoryByLabel = Object.fromEntries(
+  Object.entries(categoryConfig).map(([, v]) => [v.label, v])
+);
+
 const LostAndFound: React.FC = () => {
   const { user } = useAuth();
-  const [filter, setFilter] = useState<'all' | 'lost' | 'found'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [lostItems, setLostItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [visible, setVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const searchRef = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => {
-    setVisible(true);
-  }, []);
+  useEffect(() => { setVisible(true); }, []);
 
-  // 类别定义和映射
-  const categoryConfig: Record<string, { label: string; icon: string; color: string }> = {
-    electronics: { label: '电子数码', icon: 'devices', color: 'blue' },
-    cards: { label: '证件卡片', icon: 'badge', color: 'purple' },
-    books: { label: '书籍文具', icon: 'menu_book', color: 'green' },
-    daily: { label: '生活用品', icon: 'coffee', color: 'amber' },
-    clothing: { label: '服饰配件', icon: 'checkroom', color: 'pink' },
-    sports: { label: '运动器材', icon: 'sports_basketball', color: 'red' },
-    keys: { label: '钥匙', icon: 'key', color: 'slate' },
-    other: { label: '其他', icon: 'more_horiz', color: 'gray' },
+  // Read filters from URL params (single source of truth)
+  const filter = searchParams.get('type') || 'all';
+  const categoryFilter = searchParams.get('category') || 'all';
+  const timeFilter = searchParams.get('time') || 'all';
+
+  const updateParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'all' || value === '') {
+      next.delete(key);
+    } else {
+      next.set(key, value);
+    }
+    setSearchParams(next, { replace: true });
   };
 
-  const categories = ['all', ...Object.keys(categoryConfig)];
+  // Search: local input with debounced URL sync
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    if (searchRef.current) clearTimeout(searchRef.current);
+    searchRef.current = setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+      if (value) next.set('q', value);
+      else next.delete('q');
+      setSearchParams(next, { replace: true });
+    }, 300);
+  };
 
-  // Fetch lost items from API
+  // Fetch from API when type/category/time filters change
   useEffect(() => {
     const fetchLostItems = async () => {
       try {
         setIsLoading(true);
         const params: { type?: 'lost' | 'found'; category?: string } = {};
-        if (filter !== 'all') params.type = filter;
-        if (categoryFilter !== 'all') params.category = categoryFilter;
+        if (filter !== 'all') params.type = filter as 'lost' | 'found';
+        if (categoryFilter !== 'all') {
+          // Convert English key to Chinese label for backend matching
+          params.category = categoryConfig[categoryFilter]?.label;
+        }
 
         const data = await lostItemsService.getAll(params);
 
         // Client-side time filter
         if (timeFilter !== 'all') {
           const now = new Date();
-          const filteredData = data.filter(item => {
-            const createdDate = new Date(item.created_at);
-            const diffTime = now.getTime() - createdDate.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-            if (timeFilter === 'week') {
-              return diffDays <= 7;
-            } else if (timeFilter === 'month') {
-              return diffDays <= 30;
-            }
+          setLostItems(data.filter(item => {
+            const diffDays = (now.getTime() - new Date(item.created_at).getTime()) / (1000 * 60 * 60 * 24);
+            if (timeFilter === 'week') return diffDays <= 7;
+            if (timeFilter === 'month') return diffDays <= 30;
             return true;
-          });
-          setLostItems(filteredData);
+          }));
         } else {
           setLostItems(data);
         }
@@ -77,15 +102,15 @@ const LostAndFound: React.FC = () => {
   }, [filter, categoryFilter, timeFilter]);
 
   // Client-side search filter
-  const filteredItems = lostItems.filter(item => {
-    return searchQuery === '' ||
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  const filteredItems = searchQuery
+    ? lostItems.filter(item =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : lostItems;
 
   return (
     <div className="relative min-h-screen">
-      {/* Dynamic Dotted Background */}
       <DottedBackground />
 
       <div className={`relative z-10 w-full max-w-[1200px] mx-auto px-6 py-8 transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
@@ -112,7 +137,7 @@ const LostAndFound: React.FC = () => {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-bold text-slate-600">类型：</span>
           <button
-            onClick={() => setFilter('all')}
+            onClick={() => updateParam('type', 'all')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === 'all'
                 ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
@@ -121,7 +146,7 @@ const LostAndFound: React.FC = () => {
             全部
           </button>
           <button
-            onClick={() => setFilter('lost')}
+            onClick={() => updateParam('type', 'lost')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === 'lost'
                 ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
@@ -130,7 +155,7 @@ const LostAndFound: React.FC = () => {
             遗失
           </button>
           <button
-            onClick={() => setFilter('found')}
+            onClick={() => updateParam('type', 'found')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === 'found'
                 ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
@@ -143,7 +168,7 @@ const LostAndFound: React.FC = () => {
 
           <span className="text-sm font-bold text-slate-600">时间：</span>
           <button
-            onClick={() => setTimeFilter('all')}
+            onClick={() => updateParam('time', 'all')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'all'
                 ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
@@ -152,7 +177,7 @@ const LostAndFound: React.FC = () => {
             全部
           </button>
           <button
-            onClick={() => setTimeFilter('week')}
+            onClick={() => updateParam('time', 'week')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'week'
                 ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
@@ -161,7 +186,7 @@ const LostAndFound: React.FC = () => {
             本周
           </button>
           <button
-            onClick={() => setTimeFilter('month')}
+            onClick={() => updateParam('time', 'month')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${timeFilter === 'month'
                 ? 'bg-primary text-white'
                 : 'bg-white/60 text-slate-600 hover:bg-white/80'
@@ -178,7 +203,7 @@ const LostAndFound: React.FC = () => {
             <span className="text-sm font-bold text-slate-600">类别：</span>
             <div className="flex bg-white/60 rounded-xl p-1 flex-wrap gap-1">
               <button
-                onClick={() => setCategoryFilter('all')}
+                onClick={() => updateParam('category', 'all')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                   categoryFilter === 'all'
                     ? 'bg-white text-primary shadow-sm'
@@ -190,7 +215,7 @@ const LostAndFound: React.FC = () => {
               {Object.entries(categoryConfig).map(([key, config]) => (
                 <button
                   key={key}
-                  onClick={() => setCategoryFilter(key)}
+                  onClick={() => updateParam('category', key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
                     categoryFilter === key
                       ? 'bg-white shadow-sm'
@@ -218,7 +243,7 @@ const LostAndFound: React.FC = () => {
               type="text"
               placeholder="搜索物品名称或描述..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/60 text-slate-900 text-sm font-bold border-0 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-slate-400 hover:bg-white/80 transition-all"
             />
           </div>
@@ -254,14 +279,15 @@ const LostAndFound: React.FC = () => {
               </div>
               <div className="p-5 flex flex-col gap-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
-                  {categoryConfig[item.category] && (
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm">
-                        {categoryConfig[item.category].icon}
+                  {(() => {
+                    const catMeta = categoryByLabel[item.category] || categoryConfig[item.category];
+                    return catMeta ? (
+                      <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">{catMeta.icon}</span>
+                        {catMeta.label}
                       </span>
-                      {categoryConfig[item.category].label}
-                    </span>
-                  )}
+                    ) : null;
+                  })()}
                   {item.publisher && <span>• {item.publisher.name || '匿名用户'}</span>}
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 group-hover:text-primary transition-colors">{item.title}</h3>

@@ -102,13 +102,24 @@ async def get_latest_feed(
     if status_updated:
         await db.commit()
 
-    # 获取最新失物招领
+    # 获取最新失物招领（仅已审核通过的）
     lost_result = await db.execute(
         select(LostItem)
+        .where(LostItem.review_status == "approved")
         .order_by(LostItem.created_at.desc())
         .limit(limit)
     )
     lost_items = lost_result.scalars().all()
+
+    # 批量查询失物招领的发布者信息
+    user_ids = {item.created_by for item in lost_items if item.created_by}
+    users_map: dict[int, User] = {}
+    if user_ids:
+        user_result = await db.execute(
+            select(User).where(User.id.in_(user_ids))
+        )
+        for u in user_result.scalars().all():
+            users_map[u.id] = u
 
     # 聚合并转换为统一格式
     feed_items = []
@@ -141,6 +152,8 @@ async def get_latest_feed(
             "created_at": notif.created_at.isoformat(),
             "link_url": "/notifications",
             "_match_level": match_level,
+            "author_name": notif.author or "系统",
+            "author_avatar": notif.avatar or None,
         })
 
     # 添加活动
@@ -163,6 +176,8 @@ async def get_latest_feed(
             "description": activity.description[:100] + "..." if len(activity.description) > 100 else activity.description,
             "created_at": activity.created_at.isoformat(),
             "link_url": f"/activities/{activity.id}",
+            "author_name": activity.organizer or "系统",
+            "author_avatar": None,
         })
 
     # 添加失物招领
@@ -171,6 +186,7 @@ async def get_latest_feed(
             "lost": "遗失",
             "found": "招领"
         }
+        publisher = users_map.get(item.created_by) if item.created_by else None
         feed_items.append({
             "id": f"lost-{item.id}",
             "type": "lost_item",
@@ -180,6 +196,8 @@ async def get_latest_feed(
             "description": item.description[:100] + "..." if len(item.description) > 100 else item.description,
             "created_at": item.created_at.isoformat(),
             "link_url": f"/lost-and-found/{item.id}",
+            "author_name": publisher.name if publisher else "匿名用户",
+            "author_avatar": publisher.avatar if publisher and publisher.show_avatar_in_lost_item else None,
         })
 
     # 个性化排序：登录用户按相关性分数排，匿名用户按时间排

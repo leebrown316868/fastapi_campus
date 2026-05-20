@@ -141,7 +141,7 @@ async def create_admin_user():
                     location="图书馆报告厅",
                     organizer="计算机学院",
                     image="https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=2070&auto=format&fit=crop",
-                    category="lecture",
+                    category="讲座",
                     capacity=200,
                     registration_start=now - timedelta(days=2),
                     registration_end=now + timedelta(days=1),
@@ -156,7 +156,7 @@ async def create_admin_user():
                     location="北操场",
                     organizer="体育部",
                     image="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?q=80&w=2070&auto=format&fit=crop",
-                    category="sports",
+                    category="体育",
                     capacity=0,  # unlimited
                     registration_start=now - timedelta(days=5),
                     registration_end=now + timedelta(days=2),

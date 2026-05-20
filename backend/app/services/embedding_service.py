@@ -89,14 +89,15 @@ class EmbeddingService:
         query: str,
         limit: int = 5,
         item_type: Optional[str] = None,  # "lost" or "found"
+        score_threshold: Optional[float] = 0.6,
     ) -> list[dict]:
         """语义搜索失物招领内容（带查询缓存）。"""
         if not self.vector_db.is_available:
             logger.warning("Qdrant 不可用，返回空结果")
             return []
 
-        # 缓存 key = query + limit + item_type
-        cache_key = f"{query}:{limit}:{item_type}"
+        # 缓存 key = query + limit + item_type + score_threshold
+        cache_key = f"{query}:{limit}:{item_type}:{score_threshold}"
         cached = self._query_cache.get(cache_key)
         if cached is not None:
             logger.debug(f"缓存命中: {query}")
@@ -107,6 +108,7 @@ class EmbeddingService:
             query_vector=query_vector,
             limit=limit,
             filter_type=item_type,
+            score_threshold=score_threshold,
         )
 
         self._query_cache.set(cache_key, results)

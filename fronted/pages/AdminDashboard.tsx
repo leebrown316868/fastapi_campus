@@ -76,14 +76,14 @@ const AdminDashboard: React.FC = () => {
 
   // 失物招领类别配置
   const lostItemCategoryConfig: Record<string, { label: string; icon: string }> = {
-    electronics: { label: '电子数码', icon: 'devices' },
-    cards: { label: '证件卡片', icon: 'badge' },
-    books: { label: '书籍文具', icon: 'menu_book' },
-    daily: { label: '生活用品', icon: 'coffee' },
-    clothing: { label: '服饰配件', icon: 'checkroom' },
-    sports: { label: '运动器材', icon: 'sports_basketball' },
-    keys: { label: '钥匙', icon: 'key' },
-    other: { label: '其他', icon: 'more_horiz' },
+    '电子数码': { label: '电子数码', icon: 'devices' },
+    '证件卡片': { label: '证件卡片', icon: 'badge' },
+    '书籍文具': { label: '书籍文具', icon: 'menu_book' },
+    '生活用品': { label: '生活用品', icon: 'coffee' },
+    '服饰配件': { label: '服饰配件', icon: 'checkroom' },
+    '运动器材': { label: '运动器材', icon: 'sports_basketball' },
+    '钥匙': { label: '钥匙', icon: 'key' },
+    '其他': { label: '其他', icon: 'more_horiz' },
   };
 
   // Load all data
@@ -663,12 +663,10 @@ const AdminDashboard: React.FC = () => {
                       id="edit-category"
                       className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     >
-                      <option value="学术讲座">学术讲座</option>
-                      <option value="文艺演出">文艺演出</option>
-                      <option value="体育赛事">体育赛事</option>
-                      <option value="社团活动">社团活动</option>
-                      <option value="志愿服务">志愿服务</option>
-                      <option value="就业招聘">就业招聘</option>
+                      <option value="文艺">文艺</option>
+                      <option value="讲座">讲座</option>
+                      <option value="体育">体育</option>
+                      <option value="科创">科创</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -1837,12 +1835,15 @@ const AdminDashboard: React.FC = () => {
                           {item.type === 'lost' ? '遗失' : '招领'}
                         </span>
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold uppercase flex items-center gap-1">
-                          {lostItemCategoryConfig[item.category] && (
-                            <>
-                              <span className="material-symbols-outlined text-xs">{lostItemCategoryConfig[item.category].icon}</span>
-                              {lostItemCategoryConfig[item.category].label}
-                            </>
-                          ) || item.category}
+                          {(() => {
+                            const catMeta = lostItemCategoryConfig[item.category];
+                            return catMeta ? (
+                              <>
+                                <span className="material-symbols-outlined text-xs">{catMeta.icon}</span>
+                                {catMeta.label}
+                              </>
+                            ) : item.category;
+                          })()}
                         </span>
                       </div>
                     </div>

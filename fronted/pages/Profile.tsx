@@ -474,13 +474,13 @@ const Profile: React.FC = () => {
                         {myLostItems.map((item) => (
                           <Link
                             key={item.id}
-                            to="/lost-and-found"
+                            to={`/lost-and-found/${item.id}`}
                             className="flex items-center justify-between p-5 rounded-2xl bg-white/40 hover:bg-white/70 transition-all group mb-2"
                           >
                             <div className="flex items-center gap-4">
                               <div className="size-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                                 <span className="material-symbols-outlined">
-                                  {item.type === 'lost' ? 'search' : 'found'}
+                                  {item.type === 'lost' ? 'search' : 'handshake'}
                                 </span>
                               </div>
                               <div>

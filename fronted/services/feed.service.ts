@@ -10,6 +10,8 @@ export interface FeedItem {
   time: string;
   created_at: string;
   link_url: string;
+  author_name?: string;
+  author_avatar?: string | null;
 }
 
 export interface FeedResponse {

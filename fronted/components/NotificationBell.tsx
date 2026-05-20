@@ -33,16 +33,23 @@ export const NotificationBell: React.FC = () => {
     }
   }, [isOpen, user]);
 
-  // WebSocket 实时更新未读数（替代 30s 轮询）
+  // WebSocket 实时更新未读数
   useEffect(() => {
     setUnreadCount(wsUnreadCount);
   }, [wsUnreadCount]);
 
-  // 收到新通知时 prepend 到列表 + 直接递增本地未读数
+  // 兜底轮询：WebSocket 只有失物匹配会推送，其他通知（课程、活动等）只写数据库
+  useEffect(() => {
+    if (!user) return;
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // 收到新通知时 prepend 到列表（未读数由 wsUnreadCount + 轮询兜底）
   useEffect(() => {
     if (lastNotification?.type === 'new_notification') {
       const data = lastNotification.data;
-      setUnreadCount(prev => prev + 1);
       setNotifications(prev => [
         {
           id: Date.now(),
@@ -55,7 +62,6 @@ export const NotificationBell: React.FC = () => {
         },
         ...prev.slice(0, 4),
       ]);
-      // 刷新完整列表（下次打开下拉时）
       if (isOpen) {
         fetchNotifications();
       }
